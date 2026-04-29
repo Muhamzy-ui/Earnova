@@ -90,7 +90,7 @@ def user_profile_detail(request, uid):
 
     elif request.method == 'POST':
         # "set" document (create or overwrite)
-        data = request.data
+        data, increments, _ = parse_firestore_update(request.data)
         if 'uid' not in data:
             data['uid'] = uid
             
