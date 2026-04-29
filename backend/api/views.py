@@ -64,8 +64,31 @@ def user_profile_detail(request, uid):
         user_profile = None
 
     if request.method == 'GET':
+        if not user_profile:
+            # User exists in Firebase Auth but not in DB yet (e.g. partial migration)
+            # Auto-create a minimal profile so they can still log in
+            firebase_uid = request.firebase_user.get('uid')
+            firebase_email = request.firebase_user.get('email', '')
+            firebase_name = request.firebase_user.get('name', '')
+            name_parts = firebase_name.split(' ', 1) if firebase_name else ['', '']
+            import uuid, random, string
+            referral_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+            user_profile = UserProfile.objects.create(
+                uid=uid,
+                email=firebase_email,
+                firstname=name_parts[0] if name_parts else '',
+                lastname=name_parts[1] if len(name_parts) > 1 else '',
+                username=firebase_email.split('@')[0] if firebase_email else uid[:8],
+                balance=10.00,
+                total_earned=10.00,
+                referral_code=referral_code,
+                welcome_bonus_given=True,
+                status='active',
+                role='user',
+            )
         serializer = UserProfileSerializer(user_profile)
         return Response(serializer.data)
+
 
     elif request.method == 'POST':
         # "set" document (create or overwrite)
