@@ -33,25 +33,43 @@ class FirestoreShim {
       increment: (val) => ({ _isFieldValue: true, _method: 'increment', _value: val }),
       delete: () => ({ _isFieldValue: true, _method: 'delete' })
     };
+    this._listeners = new Set();
   }
 
   async _fetch(endpoint, method = 'GET', data = null) {
     const user = firebase.auth().currentUser;
     const headers = { 'Content-Type': 'application/json' };
+    
+    // Wait for user if token is needed
     if (user) {
       const token = await user.getIdToken();
       headers['Authorization'] = `Bearer ${token}`;
     }
+    
     const options = { method, headers };
     if (data) options.body = JSON.stringify(data);
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || `API Error: ${response.status}`);
-    return result;
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+      const result = await response.json();
+      if (!response.ok) {
+        console.error(`API Error [${response.status}] for ${endpoint}:`, result);
+        throw new Error(result.error || `API Error: ${response.status}`);
+      }
+      return result;
+    } catch (err) {
+      console.error(`Fetch error for ${endpoint}:`, err);
+      throw err;
+    }
   }
 
   collection(path) {
     return new CollectionRef(this, path);
+  }
+
+  // Helper to trigger a refresh of all active listeners
+  _triggerRefresh() {
+    this._listeners.forEach(fn => fn());
   }
 }
 
@@ -71,30 +89,23 @@ class CollectionRef {
 
   async add(data) {
     const parts = this.path.split('/');
+    let result;
+    // Sub-collection: users/{uid}/transactions
     if (parts.length === 3 && parts[0] === 'users' && parts[2] === 'transactions') {
-      const uid = parts[1];
-      return await this.db._fetch(`/users/${uid}/transactions/`, 'POST', data);
+      result = await this.db._fetch(`/users/${parts[1]}/transactions/`, 'POST', data);
     } else if (parts[0] === 'withdrawals') {
-      return await this.db._fetch(`/withdrawals/`, 'POST', data);
+      result = await this.db._fetch(`/withdrawals/`, 'POST', data);
+    } else {
+      throw new Error(`Collection add not supported for path: ${this.path}`);
     }
-    throw new Error(`Collection add not supported for path: ${this.path}`);
+    this.db._triggerRefresh();
+    return { id: result.id || result.doc_id || 'new_doc' };
   }
 
-  where(field, op, value) {
-    return new Query(this.db, this.path).where(field, op, value);
-  }
-
-  orderBy(field, dir = 'asc') {
-    return new Query(this.db, this.path).orderBy(field, dir);
-  }
-
-  limit(n) {
-    return new Query(this.db, this.path).limit(n);
-  }
-
-  onSnapshot(callback, errorCallback) {
-    return new Query(this.db, this.path).onSnapshot(callback, errorCallback);
-  }
+  where(field, op, value) { return new Query(this.db, this.path).where(field, op, value); }
+  orderBy(field, dir = 'asc') { return new Query(this.db, this.path).orderBy(field, dir); }
+  limit(n) { return new Query(this.db, this.path).limit(n); }
+  onSnapshot(callback, errorCallback) { return new Query(this.db, this.path).onSnapshot(callback, errorCallback); }
 }
 
 class Query {
@@ -106,70 +117,40 @@ class Query {
     this._limit = 1000;
   }
 
-  where(field, op, value) {
-    this.filters.push({ field, op, value });
-    return this;
-  }
-
-  orderBy(field, dir = 'asc') {
-    this.orders.push({ field, dir });
-    return this;
-  }
-
-  limit(n) {
-    this._limit = n;
-    return this;
-  }
+  where(field, op, value) { this.filters.push({ field, op, value }); return this; }
+  orderBy(field, dir = 'asc') { this.orders.push({ field, dir }); return this; }
+  limit(n) { this._limit = n; return this; }
 
   async get() {
     const parts = this.path.split('/');
 
-    // users/{uid}/transactions sub-collection
+    // Handle users/{uid}/transactions
     if (parts.length === 3 && parts[0] === 'users' && parts[2] === 'transactions') {
-      const uid = parts[1];
-      try {
-        const results = await this.db._fetch(`/users/${uid}/transactions/?limit=${this._limit}`);
-        return this._wrapDocs(results);
-      } catch (e) {
-        return this._wrapDocs([]);
-      }
+      const results = await this.db._fetch(`/users/${parts[1]}/transactions/?limit=${this._limit}`);
+      return this._wrapDocs(results);
     }
 
-    // users collection
+    // Handle users collection
     if (this.path === 'users') {
-      // Check for referral code query
       const refFilter = this.filters.find(f => f.field === 'referralCode');
       if (refFilter) {
         try {
           const r = await this.db._fetch(`/users/by-referral/check/?code=${refFilter.value}`);
           return this._wrapDocs([r]);
-        } catch (e) {
-          return this._wrapDocs([]);
-        }
+        } catch (e) { return this._wrapDocs([]); }
       }
-      // General list
-      try {
-        const results = await this.db._fetch(`/admin/users/?limit=${this._limit}`);
-        return this._wrapDocs(results);
-      } catch (e) {
-        return this._wrapDocs([]);
-      }
+      const results = await this.db._fetch(`/admin/users/?limit=${this._limit}`);
+      return this._wrapDocs(results);
     }
 
-    // withdrawals collection
+    // Handle withdrawals collection
     if (this.path === 'withdrawals') {
-      try {
-        const results = await this.db._fetch(`/admin/withdrawals/?limit=${this._limit}`);
-        return this._wrapDocs(results);
-      } catch (e) {
-        return this._wrapDocs([]);
-      }
+      const results = await this.db._fetch(`/admin/withdrawals/?limit=${this._limit}`);
+      return this._wrapDocs(results);
     }
 
-    // kyc collection (not fully implemented in backend yet, but shim it)
-    if (this.path === 'kyc') {
-       return this._wrapDocs([]);
-    }
+    // Kyc (dummy)
+    if (this.path === 'kyc') return this._wrapDocs([]);
 
     return this._wrapDocs([]);
   }
@@ -197,13 +178,12 @@ class Query {
       try {
         const snapshot = await this.get();
         if (!cancelled) callback(snapshot);
-      } catch (e) {
-        if (!cancelled && errorCallback) errorCallback(e);
-      }
-      if (!cancelled) setTimeout(poll, 10000); // 10s poll
+      } catch (e) { if (!cancelled && errorCallback) errorCallback(e); }
+      if (!cancelled) setTimeout(poll, 15000); // Poll less frequently for lists
     };
+    this.db._listeners.add(poll);
     poll();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; this.db._listeners.delete(poll); };
   }
 }
 
@@ -211,54 +191,58 @@ class DocRef {
   constructor(db, path) {
     this.db = db;
     this.path = path;
-    const parts = path.split('/');
-    this.uid = parts[0] === 'users' ? parts[1] : null;
-  }
-
-  collection(subPath) {
-    return new CollectionRef(this.db, `${this.path}/${subPath}`);
   }
 
   async get() {
     const parts = this.path.split('/');
 
+    // Handle admins/{docId}
     if (parts[0] === 'admins') {
       try {
         const r = await this.db._fetch(`/admin/verify/`, 'POST');
         return r.is_admin ? { exists: true, data: () => r } : { exists: false, data: () => null };
-      } catch (e) {
-        return { exists: false, data: () => null };
-      }
+      } catch (e) { return { exists: false, data: () => null }; }
     }
 
-    if (this.uid) {
+    // Handle users/{uid}
+    if (parts.length === 2 && parts[0] === 'users') {
       try {
-        const data = await this.db._fetch(`/users/${this.uid}/`);
+        const data = await this.db._fetch(`/users/${parts[1]}/`);
         return { exists: true, data: () => data };
-      } catch (e) {
-        return { exists: false, data: () => null };
-      }
+      } catch (e) { return { exists: false, data: () => null }; }
     }
     
-    // Other documents?
+    // Handle users/{uid}/transactions/{id} (unlikely to be used but good for completeness)
+    if (parts.length === 4 && parts[0] === 'users' && parts[2] === 'transactions') {
+       // Just returning empty/exists:false for now as usually list is used
+       return { exists: false, data: () => null };
+    }
+
     return { exists: false, data: () => null };
   }
 
   async set(data) {
-    if (this.uid) {
-      return await this.db._fetch(`/users/${this.uid}/`, 'POST', data);
+    const parts = this.path.split('/');
+    if (parts.length === 2 && parts[0] === 'users') {
+      await this.db._fetch(`/users/${parts[1]}/`, 'POST', data);
+      this.db._triggerRefresh();
+      return;
     }
     throw new Error(`Set not supported for path: ${this.path}`);
   }
 
   async update(data) {
-    if (this.uid) {
-      return await this.db._fetch(`/users/${this.uid}/`, 'PATCH', data);
-    }
     const parts = this.path.split('/');
+    if (parts.length === 2 && parts[0] === 'users') {
+      await this.db._fetch(`/users/${parts[1]}/`, 'PATCH', data);
+      this.db._triggerRefresh();
+      return;
+    }
     if (parts[0] === 'withdrawals') {
       const action = data.status === 'completed' ? 'approve' : 'reject';
-      return await this.db._fetch(`/admin/withdrawals/${parts[1]}/`, 'PATCH', { action });
+      await this.db._fetch(`/admin/withdrawals/${parts[1]}/`, 'PATCH', { action });
+      this.db._triggerRefresh();
+      return;
     }
     throw new Error(`Update not supported for path: ${this.path}`);
   }
@@ -270,13 +254,12 @@ class DocRef {
       try {
         const doc = await this.get();
         if (!cancelled) callback(doc);
-      } catch (e) {
-        if (!cancelled && errorCallback) errorCallback(e);
-      }
-      if (!cancelled) setTimeout(poll, 8000);
+      } catch (e) { if (!cancelled && errorCallback) errorCallback(e); }
+      if (!cancelled) setTimeout(poll, 4000); // 4s poll for profile
     };
+    this.db._listeners.add(poll);
     poll();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; this.db._listeners.delete(poll); };
   }
 }
 
@@ -284,12 +267,3 @@ class DocRef {
 const shim = new FirestoreShim();
 firebase.firestore = () => shim;
 firebase.firestore.FieldValue = shim.FieldValue;
-
-window.createFirstAdmin = async function(email, password) {
-  try {
-    const uc = await firebase.auth().createUserWithEmailAndPassword(email, password);
-    console.log('User created in Auth:', uc.user.uid);
-    console.warn('To make admin: use Django admin panel at /admin/');
-    return uc.user;
-  } catch (e) { console.error(e); }
-};
