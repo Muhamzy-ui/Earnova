@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Redirecting...</title>
+  <script>
+    // Get the referral code from the URL path
+    // URL: https://earnova.cloud/ref/FUNDSNET-P24L
+    const path = window.location.pathname; // /ref/FUNDSNET-P24L
+    const parts = path.split('/').filter(p => p);
+    const refCode = parts[1] || '';
+    
+    // Store in localStorage
+    if (refCode) {
+      localStorage.setItem('referralCode', refCode);
+      localStorage.setItem('refSource', 'link');
+    }
+    
+    // Redirect to ref.html in root with the code
+    window.location.href = '/ref.html?code=' + encodeURIComponent(refCode);
+  </script>
+</head>
+<body>
+  <p>Redirecting...</p>
+</body>
+</html>

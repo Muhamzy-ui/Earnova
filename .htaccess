@@ -1,0 +1,10 @@
+# Enable rewrite engine
+RewriteEngine On
+
+# Redirect /ref/CODE to /ref.html
+RewriteRule ^ref/([^/]+)/?$ ref.html [L,QSA]
+
+# If file/directory doesn't exist, serve index.html (for SPA routing)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.html [L]

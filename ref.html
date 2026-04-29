@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Earnova | Referral Invite</title>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://kit.fontawesome.com/c03cee45d4.js" crossorigin="anonymous"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    :root { --primary: #6366f1; --primary-dark: #4f46e5; --secondary: #06b6d4; --accent: #8b5cf6; --success: #10b981; --dark: #0f172a; --darker: #020617; --card: #1e293b; --text: #f8fafc; --text-muted: #94a3b8; --border: rgba(255,255,255,0.1); --gradient-1: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); --gradient-gold: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%); --shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+    body { font-family: 'Outfit', sans-serif; background: var(--darker); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; overflow-x: hidden; }
+    .bg-animation { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -2; background: radial-gradient(at 0% 0%, rgba(99,102,241,0.15) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(6,182,212,0.15) 0px, transparent 50%); animation: bgPulse 15s ease infinite; }
+    @keyframes bgPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+    .orb { position: fixed; border-radius: 50%; filter: blur(80px); z-index: -1; animation: float 20s ease-in-out infinite; }
+    .orb-1 { width: 300px; height: 300px; background: rgba(99,102,241,0.2); top: -100px; left: -100px; }
+    .orb-2 { width: 250px; height: 250px; background: rgba(6,182,212,0.15); bottom: -50px; right: -50px; animation-delay: -5s; }
+    @keyframes float { 0%,100% { transform: translate(0, 0); } 33% { transform: translate(30px, -30px); } 66% { transform: translate(-20px, 20px); } }
+    .container { width: 100%; max-width: 440px; padding: 20px; animation: slideUp 0.6s ease-out; }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+    .invite-card { background: var(--card); border: 1px solid var(--border); border-radius: 24px; padding: 40px; box-shadow: var(--shadow); position: relative; overflow: hidden; text-align: center; }
+    .invite-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--gradient-1); }
+    .inviter-avatar { width: 80px; height: 80px; background: var(--gradient-1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 32px; font-weight: 800; color: white; box-shadow: 0 0 30px rgba(99,102,241,0.4); animation: avatarPulse 2s infinite; }
+    @keyframes avatarPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.4); } 50% { box-shadow: 0 0 0 15px rgba(99,102,241,0); } }
+    .inviter-name { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+    .invite-text { color: var(--text-muted); font-size: 16px; margin-bottom: 24px; line-height: 1.6; }
+    .bonus-badge { display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 50px; font-size: 18px; color: #ffd700; font-weight: 700; margin-bottom: 24px; animation: badgePulse 2s infinite; }
+    @keyframes badgePulse { 0%,100% { box-shadow: 0 0 0 0 rgba(255,215,0,0.4); } 50% { box-shadow: 0 0 0 10px rgba(255,215,0,0); } }
+    .bonus-badge i { font-size: 20px; }
+    .btn-accept { width: 100%; padding: 16px; background: var(--gradient-1); color: white; border: none; border-radius: 12px; font-family: inherit; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 12px; }
+    .btn-accept:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(99,102,241,0.4); }
+    .btn-skip { width: 100%; padding: 14px; background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: 12px; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; }
+    .btn-skip:hover { border-color: var(--primary); color: var(--text); }
+    .loading-overlay { display: none; position: fixed; inset: 0; background: rgba(2,6,23,0.95); z-index: 9999; align-items: center; justify-content: center; flex-direction: column; gap: 16px; }
+    .loading-overlay.show { display: flex; }
+    .spinner { width: 48px; height: 48px; border: 3px solid rgba(99,102,241,0.2); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+    .loading-text { color: var(--text-muted); font-size: 14px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (max-width: 480px) { .invite-card { padding: 30px 20px; } .inviter-name { font-size: 20px; } .bonus-badge { font-size: 16px; } }
+  </style>
+</head>
+<body>
+  <div class="bg-animation"></div>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <div class="loading-text">Loading invite...</div>
+  </div>
+
+  <div class="container">
+    <div class="invite-card">
+      <div class="inviter-avatar" id="inviterAvatar">?</div>
+      <div class="inviter-name" id="inviterName">Loading...</div>
+      <div class="invite-text" id="inviteText">Invited you to join Earnova and earn USDT daily</div>
+      
+      <div class="bonus-badge">
+        <i class="fas fa-gift"></i>
+        <span>Get $10 Bonus</span>
+      </div>
+      
+      <button class="btn-accept" onclick="acceptInvite()">
+        <i class="fas fa-user-plus"></i>
+        Accept Invite & Join
+      </button>
+      
+      <button class="btn-skip" onclick="skipInvite()">
+        Already have an account? Sign in
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // Get referral code from URL parameter
+    // ref.html?code=FUNDSNET-P24L
+    const urlParams = new URLSearchParams(window.location.search);
+    const refCode = urlParams.get('code') || '';
+    
+    // Also check localStorage as backup
+    const storedRef = localStorage.getItem('referralCode');
+    const finalRefCode = refCode || storedRef || '';
+    
+    // Store in localStorage for signup page
+    if (finalRefCode) {
+      localStorage.setItem('referralCode', finalRefCode);
+      localStorage.setItem('refSource', 'link');
+    }
+
+    // Parse username from code (e.g., FUNDSNET-P24L → FUNDSNET)
+    const inviterUsername = finalRefCode.split('-')[0] || 'Friend';
+    
+    // Update UI
+    document.getElementById('inviterAvatar').textContent = inviterUsername.charAt(0).toUpperCase();
+    document.getElementById('inviterName').textContent = inviterUsername;
+    document.getElementById('inviteText').textContent = `@${inviterUsername} invited you to join Earnova and earn USDT daily`;
+
+    function acceptInvite() {
+      // Redirect to signup with referral
+      window.location.href = 'sign.html?ref=' + encodeURIComponent(finalRefCode);
+    }
+
+    function skipInvite() {
+      // Go to regular signin
+      window.location.href = 'signin.html';
+    }
+  </script>
+</body>
+</html>
