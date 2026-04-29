@@ -65,6 +65,10 @@ class CollectionRef {
     return new DocRef(this.db, `${this.path}/${id}`);
   }
 
+  async get() {
+    return await new Query(this.db, this.path).get();
+  }
+
   async add(data) {
     const parts = this.path.split('/');
     if (parts.length === 3 && parts[0] === 'users' && parts[2] === 'transactions') {
@@ -77,31 +81,29 @@ class CollectionRef {
   }
 
   where(field, op, value) {
-    return new Query(this.db, this.path, [{ field, op, value }], []);
+    return new Query(this.db, this.path).where(field, op, value);
   }
 
   orderBy(field, dir = 'asc') {
-    return new Query(this.db, this.path, [], [{ field, dir }]);
+    return new Query(this.db, this.path).orderBy(field, dir);
   }
 
   limit(n) {
-    const q = new Query(this.db, this.path, [], []);
-    q._limit = n;
-    return q;
+    return new Query(this.db, this.path).limit(n);
   }
 
   onSnapshot(callback, errorCallback) {
-    return new Query(this.db, this.path, [], []).onSnapshot(callback, errorCallback);
+    return new Query(this.db, this.path).onSnapshot(callback, errorCallback);
   }
 }
 
 class Query {
-  constructor(db, path, filters = [], orders = []) {
+  constructor(db, path) {
     this.db = db;
     this.path = path;
-    this.filters = filters;
-    this.orders = orders;
-    this._limit = 50;
+    this.filters = [];
+    this.orders = [];
+    this._limit = 1000;
   }
 
   where(field, op, value) {
@@ -127,15 +129,15 @@ class Query {
       const uid = parts[1];
       try {
         const results = await this.db._fetch(`/users/${uid}/transactions/?limit=${this._limit}`);
-        const docs = Array.isArray(results) ? results : (results.results || []);
-        return this._wrapDocs(docs);
+        return this._wrapDocs(results);
       } catch (e) {
         return this._wrapDocs([]);
       }
     }
 
-    // users collection query by referralCode
-    if (parts[0] === 'users' && this.filters.length > 0) {
+    // users collection
+    if (this.path === 'users') {
+      // Check for referral code query
       const refFilter = this.filters.find(f => f.field === 'referralCode');
       if (refFilter) {
         try {
@@ -145,17 +147,40 @@ class Query {
           return this._wrapDocs([]);
         }
       }
+      // General list
+      try {
+        const results = await this.db._fetch(`/admin/users/?limit=${this._limit}`);
+        return this._wrapDocs(results);
+      } catch (e) {
+        return this._wrapDocs([]);
+      }
+    }
+
+    // withdrawals collection
+    if (this.path === 'withdrawals') {
+      try {
+        const results = await this.db._fetch(`/admin/withdrawals/?limit=${this._limit}`);
+        return this._wrapDocs(results);
+      } catch (e) {
+        return this._wrapDocs([]);
+      }
+    }
+
+    // kyc collection (not fully implemented in backend yet, but shim it)
+    if (this.path === 'kyc') {
+       return this._wrapDocs([]);
     }
 
     return this._wrapDocs([]);
   }
 
   _wrapDocs(rawDocs) {
-    const docs = rawDocs.map(d => ({
-      id: d.uid || d.doc_id || d.id,
+    const list = Array.isArray(rawDocs) ? rawDocs : (rawDocs.results || []);
+    const docs = list.map(d => ({
+      id: d.uid || d.doc_id || d.id || 'unknown',
       data: () => d,
       exists: true,
-      ref: { id: d.uid || d.doc_id || d.id }
+      ref: { id: d.uid || d.doc_id || d.id || 'unknown' }
     }));
     return {
       docs,
@@ -175,7 +200,7 @@ class Query {
       } catch (e) {
         if (!cancelled && errorCallback) errorCallback(e);
       }
-      if (!cancelled) setTimeout(poll, 8000);
+      if (!cancelled) setTimeout(poll, 10000); // 10s poll
     };
     poll();
     return () => { cancelled = true; };
@@ -214,7 +239,9 @@ class DocRef {
         return { exists: false, data: () => null };
       }
     }
-    throw new Error(`Get not supported for path: ${this.path}`);
+    
+    // Other documents?
+    return { exists: false, data: () => null };
   }
 
   async set(data) {
@@ -246,7 +273,7 @@ class DocRef {
       } catch (e) {
         if (!cancelled && errorCallback) errorCallback(e);
       }
-      if (!cancelled) setTimeout(poll, 5000);
+      if (!cancelled) setTimeout(poll, 8000);
     };
     poll();
     return () => { cancelled = true; };

@@ -19,14 +19,17 @@ from .firebase_auth import firebase_auth_required, firebase_admin_required
 
 def parse_firestore_update(data):
     """
-    Parses a Firestore-style update object, handling FieldValue specials.
+    Parses a Firestore-style update object, handling FieldValue specials and dot notation for nested fields.
     Example: {'balance': {'_isFieldValue': True, '_method': 'increment', '_value': 5}}
+    Example: {'taskCooldowns.fb1': 123456789}
     """
     parsed = {}
     increments = {}
     deletes = []
+    nested_updates = {}
 
     for key, value in data.items():
+        # Handle FieldValue objects
         if isinstance(value, dict) and value.get('_isFieldValue'):
             method = value.get('_method')
             if method == 'increment':
@@ -34,11 +37,19 @@ def parse_firestore_update(data):
             elif method == 'delete':
                 deletes.append(key)
             elif method == 'serverTimestamp':
-                parsed[key] = timezone.now()
+                if '.' in key:
+                    nested_updates[key] = timezone.now()
+                else:
+                    parsed[key] = timezone.now()
+            continue
+
+        # Handle dot notation for nested fields
+        if '.' in key:
+            nested_updates[key] = value
         else:
             parsed[key] = value
 
-    return parsed, increments, deletes
+    return parsed, increments, deletes, nested_updates
 
 
 # ==========================================
@@ -87,22 +98,26 @@ def user_profile_detail(request, uid):
         serializer = UserProfileSerializer(user_profile)
         return Response(serializer.data)
 
-
     elif request.method == 'POST':
         # "set" document (create or overwrite)
-        data, increments, _ = parse_firestore_update(request.data)
-        if 'uid' not in data:
-            data['uid'] = uid
+        parsed_data, increments, deletes, nested_updates = parse_firestore_update(request.data)
+        if 'uid' not in parsed_data:
+            parsed_data['uid'] = uid
             
         if user_profile:
             # Overwrite existing
-            serializer = UserProfileSerializer(user_profile, data=data)
+            serializer = UserProfileSerializer(user_profile, data=parsed_data)
         else:
             # Create new
-            serializer = UserProfileSerializer(data=data)
+            serializer = UserProfileSerializer(data=parsed_data)
             
         if serializer.is_valid():
-            serializer.save()
+            user_profile = serializer.save()
+            
+            # Handle increments/nested updates if any (rare for set, but possible)
+            if increments or nested_updates or deletes:
+                user_profile = apply_nested_updates(user_profile, increments, deletes, nested_updates)
+                
             return Response(serializer.data, status=status.HTTP_201_CREATED if not user_profile else status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -111,8 +126,7 @@ def user_profile_detail(request, uid):
         if not user_profile:
             return Response({'error': 'Document does not exist to update'}, status=404)
 
-        data = request.data
-        parsed_data, increments, deletes = parse_firestore_update(data)
+        parsed_data, increments, deletes, nested_updates = parse_firestore_update(request.data)
 
         # Handle direct field updates
         if parsed_data:
@@ -122,24 +136,51 @@ def user_profile_detail(request, uid):
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        # Handle field increments (e.g. FieldValue.increment)
-        if increments:
-            for field, val in increments.items():
-                if hasattr(user_profile, field):
-                    current_val = getattr(user_profile, field)
-                    setattr(user_profile, field, current_val + type(current_val)(val))
-            user_profile.save()
-
-        # Handle nested object deletes (e.g. taskCooldowns.fb1 = delete)
-        if deletes:
-            for path in deletes:
-                parts = path.split('.')
-                if len(parts) == 2 and parts[0] == 'taskCooldowns':
-                    if user_profile.task_cooldowns and parts[1] in user_profile.task_cooldowns:
-                        del user_profile.task_cooldowns[parts[1]]
-            user_profile.save()
+        # Handle increments, deletes, and nested updates
+        if increments or deletes or nested_updates:
+            user_profile = apply_nested_updates(user_profile, increments, deletes, nested_updates)
 
         return Response(UserProfileSerializer(user_profile).data)
+
+def apply_nested_updates(user_profile, increments, deletes, nested_updates):
+    """Helper to apply increments and dot-notation nested updates to a UserProfile."""
+    # Handle increments
+    for field, val in increments.items():
+        if '.' in field:
+            # We don't support increments on nested fields yet, but we could
+            pass
+        elif hasattr(user_profile, field):
+            current_val = getattr(user_profile, field)
+            try:
+                setattr(user_profile, field, current_val + type(current_val)(val))
+            except: pass
+
+    # Handle nested updates (e.g. taskCooldowns.fb1 = 123)
+    for path, value in nested_updates.items():
+        parts = path.split('.')
+        if len(parts) == 2:
+            base_field, sub_key = parts
+            if hasattr(user_profile, base_field):
+                current_obj = getattr(user_profile, base_field)
+                if isinstance(current_obj, dict):
+                    current_obj[sub_key] = value
+                    setattr(user_profile, base_field, current_obj)
+
+    # Handle deletes
+    for path in deletes:
+        parts = path.split('.')
+        if len(parts) == 2:
+            base_field, sub_key = parts
+            if hasattr(user_profile, base_field):
+                current_obj = getattr(user_profile, base_field)
+                if isinstance(current_obj, dict) and sub_key in current_obj:
+                    del current_obj[sub_key]
+                    setattr(user_profile, base_field, current_obj)
+        elif hasattr(user_profile, path):
+            setattr(user_profile, path, None)
+
+    user_profile.save()
+    return user_profile
 
 
 @api_view(['GET'])
