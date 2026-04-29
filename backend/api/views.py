@@ -59,9 +59,7 @@ def user_profile_detail(request, uid):
     try:
         user_profile = UserProfile.objects.get(uid=uid)
     except UserProfile.DoesNotExist:
-        if request.method == 'GET':
-            return Response({'error': 'User not found'}, status=404)
-        user_profile = None
+        user_profile = None  # Handle below — auto-create if GET, or allow POST/PATCH to create
 
     if request.method == 'GET':
         if not user_profile:
