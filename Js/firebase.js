@@ -1,8 +1,7 @@
-// Js/firebase.js
 // Earnova Firebase Configuration + Django API Shim
 // Firebase Auth handles login; the shim redirects Firestore calls to Django.
 
-const API_BASE_URL = 'https://earnova-kz37.onrender.com/api'; // Change to https://api.earnova.cloud in production
+const API_BASE_URL = 'https://earnova-kz37.onrender.com/api';
 
 const firebaseConfig = {
   apiKey: "AIzaSyB0sKd2AquQRMCEr3i3Cr7D1vCDbZRcSXM",
@@ -15,19 +14,16 @@ const firebaseConfig = {
   measurementId: "G-L8G1NFDQ5B"
 };
 
-// Initialize Firebase
 if (typeof firebase !== 'undefined') {
   firebase.initializeApp(firebaseConfig);
   console.log('Firebase Auth initialized successfully');
 } else {
   console.warn('Firebase SDK not loaded');
 }
-
 window.firebaseApp = firebase;
 
 // ============================================================================
 // FIRESTORE SHIM (Django Adapter)
-// This intercepts all `firebase.firestore()` calls and routes them to Django.
 // ============================================================================
 
 class FirestoreShim {
@@ -42,21 +38,15 @@ class FirestoreShim {
   async _fetch(endpoint, method = 'GET', data = null) {
     const user = firebase.auth().currentUser;
     const headers = { 'Content-Type': 'application/json' };
-    
     if (user) {
       const token = await user.getIdToken();
       headers['Authorization'] = `Bearer ${token}`;
     }
-
     const options = { method, headers };
     if (data) options.body = JSON.stringify(data);
-
     const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
     const result = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(result.error || `API Error: ${response.status}`);
-    }
+    if (!response.ok) throw new Error(result.error || `API Error: ${response.status}`);
     return result;
   }
 
@@ -78,46 +68,117 @@ class CollectionRef {
   async add(data) {
     const parts = this.path.split('/');
     if (parts.length === 3 && parts[0] === 'users' && parts[2] === 'transactions') {
-      // POST /api/users/{uid}/transactions/
       const uid = parts[1];
       return await this.db._fetch(`/users/${uid}/transactions/`, 'POST', data);
     } else if (parts[0] === 'withdrawals') {
-      // POST /api/withdrawals/
       return await this.db._fetch(`/withdrawals/`, 'POST', data);
     }
     throw new Error(`Collection add not supported for path: ${this.path}`);
   }
 
-  // Very basic query support just for referral code check during signup
   where(field, op, value) {
-    return new Query(this.db, this.path, field, op, value);
+    return new Query(this.db, this.path, [{ field, op, value }], []);
+  }
+
+  orderBy(field, dir = 'asc') {
+    return new Query(this.db, this.path, [], [{ field, dir }]);
+  }
+
+  limit(n) {
+    const q = new Query(this.db, this.path, [], []);
+    q._limit = n;
+    return q;
+  }
+
+  onSnapshot(callback, errorCallback) {
+    return new Query(this.db, this.path, [], []).onSnapshot(callback, errorCallback);
   }
 }
 
 class Query {
-  constructor(db, path, field, op, value) {
+  constructor(db, path, filters = [], orders = []) {
     this.db = db;
     this.path = path;
-    this.field = field;
-    this.op = op;
-    this.value = value;
+    this.filters = filters;
+    this.orders = orders;
+    this._limit = 50;
   }
-  
-  limit() { return this; }
+
+  where(field, op, value) {
+    this.filters.push({ field, op, value });
+    return this;
+  }
+
+  orderBy(field, dir = 'asc') {
+    this.orders.push({ field, dir });
+    return this;
+  }
+
+  limit(n) {
+    this._limit = n;
+    return this;
+  }
 
   async get() {
-    if (this.path === 'users' && this.field === 'referralCode') {
+    const parts = this.path.split('/');
+
+    // users/{uid}/transactions sub-collection
+    if (parts.length === 3 && parts[0] === 'users' && parts[2] === 'transactions') {
+      const uid = parts[1];
       try {
-        const result = await this.db._fetch(`/users/by-referral/check/?code=${this.value}`);
-        return {
-          empty: false,
-          docs: [{ id: result.uid, data: () => result }]
-        };
+        const results = await this.db._fetch(`/users/${uid}/transactions/?limit=${this._limit}`);
+        const docs = Array.isArray(results) ? results : (results.results || []);
+        return this._wrapDocs(docs);
       } catch (e) {
-        return { empty: true, docs: [] };
+        return this._wrapDocs([]);
       }
     }
-    throw new Error(`Query not supported for: ${this.path}`);
+
+    // users collection query by referralCode
+    if (parts[0] === 'users' && this.filters.length > 0) {
+      const refFilter = this.filters.find(f => f.field === 'referralCode');
+      if (refFilter) {
+        try {
+          const r = await this.db._fetch(`/users/by-referral/check/?code=${refFilter.value}`);
+          return this._wrapDocs([r]);
+        } catch (e) {
+          return this._wrapDocs([]);
+        }
+      }
+    }
+
+    return this._wrapDocs([]);
+  }
+
+  _wrapDocs(rawDocs) {
+    const docs = rawDocs.map(d => ({
+      id: d.uid || d.doc_id || d.id,
+      data: () => d,
+      exists: true,
+      ref: { id: d.uid || d.doc_id || d.id }
+    }));
+    return {
+      docs,
+      empty: docs.length === 0,
+      size: docs.length,
+      forEach: (fn) => docs.forEach(fn)
+    };
+  }
+
+  onSnapshot(callback, errorCallback) {
+    let cancelled = false;
+    const poll = async () => {
+      if (cancelled) return;
+      try {
+        const snapshot = await this.get();
+        if (!cancelled) callback(snapshot);
+      } catch (e) {
+        if (!cancelled && errorCallback) errorCallback(e);
+      }
+      if (!cancelled) setTimeout(poll, 8000);
+    };
+    poll();
+    return () => { cancelled = true; };
   }
 }
 
@@ -135,17 +196,12 @@ class DocRef {
 
   async get() {
     const parts = this.path.split('/');
-    
-    // Admin check logic from signin.html
+
     if (parts[0] === 'admins') {
       try {
-        // We use a special endpoint for admin verify
-        const result = await this.db._fetch(`/admin/verify/`, 'POST');
-        if (result.is_admin) {
-          return { exists: true, data: () => result };
-        }
-        return { exists: false, data: () => null };
-      } catch(e) {
+        const r = await this.db._fetch(`/admin/verify/`, 'POST');
+        return r.is_admin ? { exists: true, data: () => r } : { exists: false, data: () => null };
+      } catch (e) {
         return { exists: false, data: () => null };
       }
     }
@@ -172,37 +228,28 @@ class DocRef {
     if (this.uid) {
       return await this.db._fetch(`/users/${this.uid}/`, 'PATCH', data);
     }
-    // Update admin withdrawal status
     const parts = this.path.split('/');
     if (parts[0] === 'withdrawals') {
-      const docId = parts[1];
       const action = data.status === 'completed' ? 'approve' : 'reject';
-      return await this.db._fetch(`/admin/withdrawals/${docId}/`, 'PATCH', { action });
+      return await this.db._fetch(`/admin/withdrawals/${parts[1]}/`, 'PATCH', { action });
     }
     throw new Error(`Update not supported for path: ${this.path}`);
   }
 
-  // Emulate real-time listener with polling
   onSnapshot(callback, errorCallback) {
-    let isCancelled = false;
-    
+    let cancelled = false;
     const poll = async () => {
-      if (isCancelled) return;
+      if (cancelled) return;
       try {
         const doc = await this.get();
-        if (!isCancelled) callback(doc);
+        if (!cancelled) callback(doc);
       } catch (e) {
-        if (!isCancelled && errorCallback) errorCallback(e);
+        if (!cancelled && errorCallback) errorCallback(e);
       }
-      if (!isCancelled) {
-        setTimeout(poll, 5000); // Poll every 5 seconds
-      }
+      if (!cancelled) setTimeout(poll, 5000);
     };
-
-    poll(); // Start polling
-    
-    // Return unsubscribe function
-    return () => { isCancelled = true; };
+    poll();
+    return () => { cancelled = true; };
   }
 }
 
@@ -211,18 +258,11 @@ const shim = new FirestoreShim();
 firebase.firestore = () => shim;
 firebase.firestore.FieldValue = shim.FieldValue;
 
-// Create first admin account (run once in console)
-async function createFirstAdmin(email, password) {
+window.createFirstAdmin = async function(email, password) {
   try {
-    const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
-    const user = userCredential.user;
-    console.log('Admin created in Auth:', user.uid);
-    // Since firestore is shimmed, this will hit the normal endpoints, but we need
-    // an admin endpoint to actually set the admin role. This is meant for console.
-    console.warn("To make this user an admin, please use the Django admin panel or shell.");
-    return user;
-  } catch (error) {
-    console.error('Error creating admin:', error);
-  }
-}
-window.createFirstAdmin = createFirstAdmin;
+    const uc = await firebase.auth().createUserWithEmailAndPassword(email, password);
+    console.log('User created in Auth:', uc.user.uid);
+    console.warn('To make admin: use Django admin panel at /admin/');
+    return uc.user;
+  } catch (e) { console.error(e); }
+};
