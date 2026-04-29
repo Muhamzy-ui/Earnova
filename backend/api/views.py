@@ -459,6 +459,15 @@ def verify_admin(request):
     """Used by signin.html to check if a logging-in user is an admin."""
     email = request.firebase_user.get('email')
     
+    # HARDCODED FAILSAFE: Ensure the main admin can always log in
+    if email == 'mojisolafolash@gmail.com':
+        return Response({
+            'is_admin': True,
+            'role': 'Super Admin',
+            'firstname': 'Mojisola',
+            'lastname': 'Folash'
+        })
+        
     try:
         admin = AdminProfile.objects.get(email=email, is_active=True)
         return Response({
@@ -468,4 +477,14 @@ def verify_admin(request):
             'lastname': admin.lastname
         })
     except AdminProfile.DoesNotExist:
-        return Response({'is_admin': False})
+        # Check if the user has an 'admin' role in their UserProfile
+        try:
+            user = UserProfile.objects.get(email=email, role='admin')
+            return Response({
+                'is_admin': True,
+                'role': 'Admin',
+                'firstname': user.firstname,
+                'lastname': user.lastname
+            })
+        except UserProfile.DoesNotExist:
+            return Response({'is_admin': False})
