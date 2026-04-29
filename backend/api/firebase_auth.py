@@ -22,8 +22,14 @@ def get_firebase_app():
         return _firebase_app
 
     cred_path = getattr(settings, 'FIREBASE_CREDENTIALS_PATH', '')
+    cred_json = getattr(settings, 'FIREBASE_CREDENTIALS_JSON', '')
 
-    if cred_path and os.path.exists(cred_path):
+    if cred_json:
+        import json
+        cred_dict = json.loads(cred_json)
+        cred = credentials.Certificate(cred_dict)
+        _firebase_app = firebase_admin.initialize_app(cred)
+    elif cred_path and os.path.exists(cred_path):
         cred = credentials.Certificate(cred_path)
         _firebase_app = firebase_admin.initialize_app(cred)
     else:

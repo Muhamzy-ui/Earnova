@@ -116,6 +116,7 @@ CORS_ALLOW_HEADERS = [
 
 # Firebase Admin SDK
 FIREBASE_CREDENTIALS_PATH = os.environ.get('FIREBASE_CREDENTIALS_PATH', '')
+FIREBASE_CREDENTIALS_JSON = os.environ.get('FIREBASE_CREDENTIALS_JSON', '')
 
 # Static files
 STATIC_URL = '/static/'
