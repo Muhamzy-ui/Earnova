@@ -105,8 +105,8 @@ def user_profile_detail(request, uid):
             parsed_data['uid'] = uid
             
         if user_profile:
-            # Overwrite existing
-            serializer = UserProfileSerializer(user_profile, data=parsed_data)
+            # Overwrite existing - use partial=True to prevent resetting fields not in request
+            serializer = UserProfileSerializer(user_profile, data=parsed_data, partial=True)
         else:
             # Create new
             serializer = UserProfileSerializer(data=parsed_data)
