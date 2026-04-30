@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Earnova | Sign In</title>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://kit.fontawesome.com/c03cee45d4.js" crossorigin="anonymous"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    :root { --primary: #6366f1; --primary-dark: #4f46e5; --secondary: #06b6d4; --accent: #8b5cf6; --success: #10b981; --danger: #ef4444; --dark: #0f172a; --darker: #020617; --card: #1e293b; --text: #f8fafc; --text-muted: #94a3b8; --border: rgba(255,255,255,0.1); --gradient-1: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); --shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+    body { font-family: 'Outfit', sans-serif; background: var(--darker); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; overflow-x: hidden; }
+    .bg-animation { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -2; background: radial-gradient(at 0% 0%, rgba(99,102,241,0.15) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(6,182,212,0.15) 0px, transparent 50%); animation: bgPulse 15s ease infinite; }
+    @keyframes bgPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+    .orb { position: fixed; border-radius: 50%; filter: blur(80px); z-index: -1; animation: float 20s ease-in-out infinite; }
+    .orb-1 { width: 300px; height: 300px; background: rgba(99,102,241,0.2); top: -100px; left: -100px; }
+    .orb-2 { width: 250px; height: 250px; background: rgba(6,182,212,0.15); bottom: -50px; right: -50px; animation-delay: -5s; }
+    @keyframes float { 0%,100% { transform: translate(0, 0); } 33% { transform: translate(30px, -30px); } 66% { transform: translate(-20px, 20px); } }
+    .signin-container { width: 100%; max-width: 440px; padding: 20px; animation: slideUp 0.6s ease-out; }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+    .logo-section { text-align: center; margin-bottom: 32px; }
+    .logo-box { width: 72px; height: 72px; background: var(--gradient-1); border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 32px; color: white; box-shadow: 0 10px 40px rgba(99,102,241,0.4); animation: logoPulse 2s ease-in-out infinite; }
+    @keyframes logoPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+    .brand-name { font-size: 28px; font-weight: 800; background: var(--gradient-1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px; }
+    .brand-tagline { font-size: 14px; color: var(--text-muted); }
+    .signin-card { background: var(--card); border: 1px solid var(--border); border-radius: 24px; padding: 32px; box-shadow: var(--shadow); position: relative; overflow: hidden; }
+    .signin-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--gradient-1); }
+    .card-header { text-align: center; margin-bottom: 28px; }
+    .card-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+    .card-subtitle { font-size: 13px; color: var(--text-muted); }
+    .form-group { margin-bottom: 20px; }
+    .form-label { display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; }
+    .input-wrapper { position: relative; }
+    .input-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 16px; transition: color 0.3s ease; }
+    .form-input { width: 100%; padding: 14px 16px 14px 44px; background: rgba(15,23,42,0.6); border: 2px solid var(--border); border-radius: 12px; color: var(--text); font-family: inherit; font-size: 15px; outline: none; transition: all 0.3s ease; }
+    .form-input:focus { border-color: var(--primary); background: rgba(15,23,42,0.8); box-shadow: 0 0 0 4px rgba(99,102,241,0.1); }
+    .input-wrapper:focus-within .input-icon { color: var(--primary); }
+    .password-toggle { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); cursor: pointer; font-size: 14px; transition: color 0.3s ease; }
+    .password-toggle:hover { color: var(--text); }
+    .form-options { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .remember-me { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    .remember-me input { width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer; }
+    .remember-me span { font-size: 13px; color: var(--text-muted); }
+    .forgot-link { font-size: 13px; color: var(--primary); text-decoration: none; font-weight: 600; transition: color 0.3s ease; }
+    .forgot-link:hover { color: var(--secondary); }
+    .signin-btn { width: 100%; padding: 16px; background: var(--gradient-1); color: white; border: none; border-radius: 12px; font-family: inherit; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.3s ease; position: relative; overflow: hidden; }
+    .signin-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(99,102,241,0.4); }
+    .signin-btn:active { transform: translateY(0); }
+    .signin-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .btn-loader { display: none; width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 8px; vertical-align: middle; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .signin-btn.loading .btn-loader { display: inline-block; }
+    .signin-btn.loading .btn-text { display: none; }
+    .divider { display: flex; align-items: center; margin: 24px 0; color: var(--text-muted); font-size: 12px; }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .divider span { padding: 0 16px; }
+    .social-login { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+    .social-btn { padding: 12px; background: rgba(15,23,42,0.6); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .social-btn:hover { background: rgba(99,102,241,0.1); border-color: var(--primary); }
+    .card-footer { text-align: center; font-size: 14px; color: var(--text-muted); }
+    .card-footer a { color: var(--primary); text-decoration: none; font-weight: 700; transition: color 0.3s ease; }
+    .card-footer a:hover { color: var(--secondary); }
+    .security-badge { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 20px; font-size: 12px; color: var(--text-muted); }
+    .security-badge i { color: var(--success); }
+    .error-box { display: none; padding: 12px 16px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 10px; margin-bottom: 20px; font-size: 13px; color: var(--danger); }
+    .error-box.show { display: flex; align-items: center; gap: 8px; }
+    .loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(2,6,23,0.95); z-index: 9999; align-items: center; justify-content: center; flex-direction: column; gap: 16px; }
+    .loading-overlay.show { display: flex; }
+    .loading-spinner { width: 48px; height: 48px; border: 3px solid rgba(99,102,241,0.2); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+    .loading-text { color: var(--text-muted); font-size: 14px; }
+    @media (max-width: 480px) { .signin-card { padding: 24px 20px; } .brand-name { font-size: 24px; } .social-login { grid-template-columns: 1fr; } }
+    @keyframes shake { 0%,100% { transform: translateX(0); } 10%,30%,50%,70%,90% { transform: translateX(-5px); } 20%,40%,60%,80% { transform: translateX(5px); } }
+    .shake { animation: shake 0.5s ease-in-out; }
+  </style>
+</head>
+<body>
+  <div class="bg-animation"></div>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-text" id="loadingText">Signing in...</div>
+  </div>
+  
+  <div class="signin-container">
+    <div class="logo-section">
+      <div class="logo-box"><i class="fas fa-bolt"></i></div>
+      <div class="brand-name">Earnova</div>
+      <div class="brand-tagline">Welcome back! Sign in to continue.</div>
+    </div>
+    
+    <div class="signin-card">
+      <div class="card-header">
+        <div class="card-title">Sign In</div>
+        <div class="card-subtitle">Enter your credentials to access your account</div>
+      </div>
+      
+      <div class="error-box" id="errorBox">
+        <i class="fas fa-exclamation-circle"></i>
+        <span id="errorText"></span>
+      </div>
+      
+      <form id="signinForm" onsubmit="handleSignIn(event)">
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <div class="input-wrapper">
+            <i class="fas fa-envelope input-icon"></i>
+            <input type="email" class="form-input" id="email" placeholder="name@example.com" required autocomplete="email">
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <div class="input-wrapper">
+            <i class="fas fa-lock input-icon"></i>
+            <input type="password" class="form-input" id="password" placeholder="Enter your password" required autocomplete="current-password">
+            <i class="fas fa-eye password-toggle" id="togglePassword" onclick="togglePassword()"></i>
+          </div>
+        </div>
+        
+        <div class="form-options">
+          <label class="remember-me">
+            <input type="checkbox" id="rememberMe">
+            <span>Remember me</span>
+          </label>
+          <a href="#" class="forgot-link" onclick="handleForgotPassword(event)">Forgot password?</a>
+        </div>
+        
+        <button type="submit" class="signin-btn" id="signinBtn">
+          <span class="btn-loader"></span>
+          <span class="btn-text"><i class="fas fa-sign-in-alt" style="margin-right: 8px;"></i>Sign In</span>
+        </button>
+      </form>
+      
+      <div class="divider"><span>OR</span></div>
+      
+      <div class="social-login">
+        <button class="social-btn" onclick="signInWithGoogle()"><i class="fab fa-google"></i> Google</button>
+        <button class="social-btn" onclick="signInWithPhone()"><i class="fas fa-mobile-alt"></i> Phone</button>
+      </div>
+      
+      <div class="card-footer">Don't have an account? <a href="sign.html">Create Account</a></div>
+      
+      <div class="security-badge"><i class="fas fa-shield-alt"></i><span>Secured by Firebase Authentication</span></div>
+    </div>
+  </div>
+
+  <script src="Js/firebase.js"></script>
+  <script>
+    // Initialize Firebase services
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+
+    function togglePassword() {
+      const input = document.getElementById('password');
+      const icon = document.getElementById('togglePassword');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+      } else {
+        input.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+      }
+    }
+
+    function showError(message) {
+      const errorBox = document.getElementById('errorBox');
+      document.getElementById('errorText').textContent = message;
+      errorBox.classList.add('show');
+      setTimeout(() => errorBox.classList.remove('show'), 5000);
+    }
+
+    function hideError() {
+      document.getElementById('errorBox').classList.remove('show');
+    }
+
+    function shakeCard() {
+      const card = document.querySelector('.signin-card');
+      card.classList.remove('shake');
+      void card.offsetWidth;
+      card.classList.add('shake');
+    }
+
+    function setLoading(isLoading) {
+      const btn = document.getElementById('signinBtn');
+      const overlay = document.getElementById('loadingOverlay');
+      if (isLoading) {
+        btn.classList.add('loading');
+        btn.disabled = true;
+        overlay.classList.add('show');
+      } else {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+        overlay.classList.remove('show');
+      }
+    }
+
+    // Handle sign in - ONLY runs when form is submitted
+    async function handleSignIn(e) {
+      e.preventDefault();
+      hideError();
+
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      if (!email || !password) {
+        showError('Please fill in all fields');
+        shakeCard();
+        return;
+      }
+
+      setLoading(true);
+
+      try {
+        // Sign in with Firebase Auth
+        const userCredential = await auth.signInWithEmailAndPassword(email, password);
+        const user = userCredential.user;
+
+        // ========== CHECK ADMIN FIRST ==========
+        console.log('Checking admin for UID:', user.uid);
+        const adminDoc = await db.collection('admins').doc('admin').get();
+        console.log('Admin doc exists:', adminDoc.exists);
+        
+        if (adminDoc.exists) {
+          const adminData = adminDoc.data();
+          console.log('Admin data:', adminData);
+          
+          // Verify email matches
+          if (adminData.email === user.email) {
+            console.log('ADMIN LOGIN SUCCESS');
+            
+            // Clear any old user data first
+            localStorage.clear();
+            
+            // Set admin data
+            localStorage.setItem('userLoggedIn', 'true');
+            localStorage.setItem('userType', 'admin');
+            localStorage.setItem('uid', user.uid);
+            localStorage.setItem('email', user.email);
+            localStorage.setItem('firstname', adminData.firstname || 'Admin');
+            localStorage.setItem('lastname', adminData.lastname || '');
+            localStorage.setItem('role', adminData.role || 'admin');
+            localStorage.setItem('username', adminData.firstname || 'Admin');
+            
+            console.log('Redirecting to admin.html');
+            window.location.href = 'admin.html';
+            return; // STOP HERE - don't check users
+          }
+        }
+
+        // ========== NOT ADMIN - CHECK USERS ==========
+        console.log('Not admin, checking users collection');
+        const userDoc = await db.collection('users').doc(user.uid).get();
+        
+        if (userDoc.exists) {
+          const userData = userDoc.data();
+          
+          // Update last login
+          await db.collection('users').doc(user.uid).update({
+            lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+          }).catch(() => {});
+          
+          // Clear old data
+          localStorage.clear();
+          
+          // Set user data
+          localStorage.setItem('userLoggedIn', 'true');
+          localStorage.setItem('userType', 'user');
+          localStorage.setItem('uid', user.uid);
+          localStorage.setItem('email', user.email);
+          localStorage.setItem('username', userData.username || user.email.split('@')[0]);
+          localStorage.setItem('firstname', userData.firstname || '');
+          localStorage.setItem('lastname', userData.lastname || '');
+          localStorage.setItem('balance', (userData.balance || 0).toString());
+          localStorage.setItem('totalEarned', (userData.totalEarned || 0).toString());
+          localStorage.setItem('tasksCompleted', (userData.tasksCompleted || 0).toString());
+          localStorage.setItem('refCount', (userData.refCount || 0).toString());
+          localStorage.setItem('refEarnings', (userData.refEarnings || 0).toString());
+          localStorage.setItem('referralCode', userData.referralCode || '');
+          localStorage.setItem('registrationCompleted', 'true');
+          
+          if (userData.taskCooldowns) {
+            Object.keys(userData.taskCooldowns).forEach(key => {
+              localStorage.setItem(`task_completed_${key}`, userData.taskCooldowns[key].toString());
+            });
+          }
+          
+          window.location.href = 'board.html';
+        } else {
+          // User in Auth but not in Firestore
+          showError('Account not found in database. Please contact support.');
+          await auth.signOut();
+          setLoading(false);
+        }
+
+      } catch (error) {
+        console.error('Sign in error:', error);
+        setLoading(false);
+
+        let message = 'Login failed. Please try again.';
+        switch(error.code) {
+          case 'auth/user-not-found': message = 'No account found with this email.'; break;
+          case 'auth/wrong-password': message = 'Incorrect password.'; break;
+          case 'auth/invalid-email': message = 'Invalid email address.'; break;
+          case 'auth/user-disabled': message = 'This account has been disabled.'; break;
+          case 'auth/too-many-requests': message = 'Too many attempts. Try again later.'; break;
+          case 'auth/invalid-credential': message = 'Invalid email or password.'; break;
+          case 'auth/network-request-failed': message = 'Network error. Check your internet.'; break;
+          default: message = error.message;
+        }
+
+        showError(message);
+        shakeCard();
+      }
+    }
+
+    // Forgot password
+    async function handleForgotPassword(e) {
+      e.preventDefault();
+      
+      const email = document.getElementById('email').value.trim();
+      
+      const { value: resetEmail, isConfirmed } = await Swal.fire({
+        title: 'Reset Password',
+        input: 'email',
+        inputValue: email,
+        inputPlaceholder: 'Enter your email address',
+        showCancelButton: true,
+        confirmButtonText: 'Send Reset Link',
+        confirmButtonColor: '#6366f1',
+        background: '#0f172a',
+        color: '#f8fafc',
+        inputValidator: (value) => {
+          if (!value) return 'Please enter your email';
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'Invalid email format';
+        }
+      });
+      
+      if (isConfirmed && resetEmail) {
+        try {
+          await auth.sendPasswordResetEmail(resetEmail);
+          Swal.fire({ title: 'Email Sent!', text: 'Check your inbox for reset instructions.', icon: 'success', confirmButtonColor: '#6366f1', background: '#0f172a', color: '#f8fafc' });
+        } catch (error) {
+          Swal.fire({ title: 'Error', text: error.message, icon: 'error', confirmButtonColor: '#6366f1', background: '#0f172a', color: '#f8fafc' });
+        }
+      }
+    }
+
+    // Social login placeholders
+    function signInWithGoogle() {
+      Swal.fire({ title: 'Coming Soon', text: 'Google sign in will be available soon.', icon: 'info', confirmButtonColor: '#6366f1', background: '#0f172a', color: '#f8fafc' });
+    }
+
+    function signInWithPhone() {
+      Swal.fire({ title: 'Coming Soon', text: 'Phone sign in will be available soon.', icon: 'info', confirmButtonColor: '#6366f1', background: '#0f172a', color: '#f8fafc' });
+    }
+  </script>
+</body>
+</html>

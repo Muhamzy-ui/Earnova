@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Earnova | Withdrawal Successful</title>
+  
+  <!-- PWA Meta -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Earnova">
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3135/3135715.png">
+  
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://kit.fontawesome.com/c03cee45d4.js" crossorigin="anonymous"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    :root {
+      --primary: #6366f1;
+      --primary-dark: #4f46e5;
+      --secondary: #06b6d4;
+      --accent: #8b5cf6;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --dark: #0f172a;
+      --darker: #020617;
+      --card: #1e293b;
+      --card-hover: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: rgba(255, 255, 255, 0.1);
+      --gradient-1: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      --gradient-success: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
+      --shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      --glow-success: 0 0 30px rgba(16, 185, 129, 0.3);
+    }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--darker);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .bg-animation {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -2;
+      background: 
+        radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(6, 182, 212, 0.15) 0px, transparent 50%);
+      animation: bgPulse 15s ease infinite;
+    }
+
+    @keyframes bgPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+
+    .orbs {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.4;
+      animation: orbFloat 20s infinite ease-in-out;
+    }
+
+    .orb-1 { width: 300px; height: 300px; background: var(--success); top: -10%; left: -10%; }
+    .orb-2 { width: 250px; height: 250px; background: var(--secondary); bottom: -10%; right: -10%; animation-delay: 5s; }
+    .orb-3 { width: 200px; height: 200px; background: var(--primary); top: 50%; left: 50%; animation-delay: -10s; }
+
+    @keyframes orbFloat {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(30px, -30px) scale(1.1); }
+    }
+
+    .success-animation {
+      position: relative;
+      width: 140px;
+      height: 140px;
+      margin: 0 auto 30px;
+    }
+
+    .success-circle {
+      width: 140px;
+      height: 140px;
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 182, 212, 0.2));
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      animation: scaleIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      box-shadow: var(--glow-success);
+    }
+
+    @keyframes scaleIn {
+      0% { transform: scale(0); opacity: 0; }
+      50% { transform: scale(1.15); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .success-circle::before {
+      content: '';
+      position: absolute;
+      inset: -15px;
+      border-radius: 50%;
+      border: 3px solid var(--success);
+      opacity: 0.2;
+      animation: ripple 2s infinite;
+    }
+
+    .success-circle::after {
+      content: '';
+      position: absolute;
+      inset: -30px;
+      border-radius: 50%;
+      border: 2px solid var(--success);
+      opacity: 0.1;
+      animation: ripple 2s infinite 0.5s;
+    }
+
+    @keyframes ripple {
+      0% { transform: scale(1); opacity: 0.3; }
+      100% { transform: scale(1.3); opacity: 0; }
+    }
+
+    .success-circle i {
+      font-size: 56px;
+      color: var(--success);
+      animation: checkmark 0.5s ease 0.4s both;
+    }
+
+    @keyframes checkmark {
+      0% { transform: scale(0) rotate(-45deg); }
+      50% { transform: scale(1.2) rotate(0deg); }
+      100% { transform: scale(1) rotate(0deg); }
+    }
+
+    .container {
+      max-width: 500px;
+      width: 100%;
+      margin: 20px;
+      text-align: center;
+      animation: slideUp 0.6s ease;
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .success-title {
+      font-size: 36px;
+      font-weight: 800;
+      margin-bottom: 12px;
+      background: var(--gradient-success);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .success-message {
+      font-size: 16px;
+      color: var(--text-muted);
+      margin-bottom: 30px;
+      line-height: 1.6;
+    }
+
+    .details-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 24px;
+      margin-bottom: 24px;
+      text-align: left;
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .details-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--gradient-success);
+    }
+
+    .details-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .details-icon {
+      width: 48px;
+      height: 48px;
+      background: var(--gradient-success);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      color: white;
+      box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+    }
+
+    .details-title {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .details-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .detail-row:last-child {
+      border-bottom: none;
+    }
+
+    .detail-label {
+      font-size: 14px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .detail-value {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .detail-value.success {
+      color: var(--success);
+      font-size: 20px;
+    }
+
+    .detail-value.warning {
+      color: var(--warning);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--success);
+    }
+
+    .status-badge i {
+      font-size: 10px;
+    }
+
+    .action-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: 16px;
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      text-decoration: none;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-primary {
+      background: var(--gradient-1);
+      color: white;
+      box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(99, 102, 241, 0.6);
+    }
+
+    .btn-secondary {
+      background: var(--card);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: var(--card-hover);
+      border-color: var(--primary);
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      transition: 0.5s;
+    }
+
+    .btn:hover::before {
+      left: 100%;
+    }
+
+    .processing-info {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-align: left;
+      animation: slideUp 0.5s ease 0.3s both;
+    }
+
+    .processing-icon {
+      width: 40px;
+      height: 40px;
+      background: rgba(16, 185, 129, 0.2);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--success);
+      font-size: 18px;
+      animation: spin 3s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .processing-text {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .processing-text strong {
+      color: var(--success);
+    }
+
+    .confetti {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 100;
+      overflow: hidden;
+    }
+
+    .confetti-piece {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      top: -10px;
+      animation: confetti-fall 3s ease-in infinite;
+    }
+
+    @keyframes confetti-fall {
+      0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+    }
+
+    .notification-permission {
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+      text-align: left;
+      display: none;
+      animation: slideUp 0.5s ease 0.2s both;
+    }
+
+    .notification-permission.show {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .notification-icon {
+      width: 48px;
+      height: 48px;
+      background: var(--gradient-1);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .notification-content h4 {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .notification-content p {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .notification-btn-small {
+      padding: 8px 16px;
+      background: var(--gradient-1);
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .notification-btn-small:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+    }
+
+    /* Debug info for troubleshooting */
+    .debug-info {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 20px;
+      text-align: left;
+      display: none;
+    }
+
+    .debug-info.show {
+      display: block;
+    }
+
+    .debug-info h4 {
+      color: var(--danger);
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+
+    .debug-info p {
+      color: var(--text-muted);
+      font-size: 12px;
+      font-family: monospace;
+    }
+
+    @media (max-width: 640px) {
+      .success-title {
+        font-size: 28px;
+      }
+      
+      .success-animation {
+        width: 120px;
+        height: 120px;
+      }
+      
+      .success-circle {
+        width: 120px;
+        height: 120px;
+      }
+      
+      .success-circle i {
+        font-size: 48px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-animation"></div>
+  <div class="orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <div class="confetti" id="confetti"></div>
+
+  <div class="container">
+    <!-- Debug Info (hidden by default, shows if there's an issue) -->
+    <div class="debug-info" id="debugInfo">
+      <h4><i class="fas fa-bug"></i> Debug Info</h4>
+      <p id="debugText">Loading...</p>
+    </div>
+
+    <!-- Notification Permission Request -->
+    <div class="notification-permission" id="notificationPermission">
+      <div class="notification-icon">
+        <i class="fas fa-bell"></i>
+      </div>
+      <div class="notification-content">
+        <h4>Enable Withdrawal Notifications</h4>
+        <p>Get instant alerts when your withdrawals are processed. Never miss an update!</p>
+        <button class="notification-btn-small" onclick="requestNotificationPermission()">
+          <i class="fas fa-bell"></i> Enable Notifications
+        </button>
+      </div>
+    </div>
+
+    <div class="success-animation">
+      <div class="success-circle">
+        <i class="fas fa-check"></i>
+      </div>
+    </div>
+
+    <div class="success-title">Withdrawal Successful!</div>
+    <div class="success-message">
+      Your withdrawal has been processed and confirmed.<br>
+      Funds will arrive in your account shortly.
+    </div>
+
+    <!-- Details Card -->
+    <div class="details-card">
+      <div class="details-header">
+        <div class="details-icon">
+          <i class="fas fa-receipt"></i>
+        </div>
+        <div>
+          <div class="details-title">Transaction Details</div>
+          <div class="details-subtitle">Reference: <span id="transactionRef">#TXN000000</span></div>
+        </div>
+      </div>
+
+      <div class="detail-row">
+        <span class="detail-label"><i class="fas fa-money-bill-wave"></i> Amount Withdrawn</span>
+        <span class="detail-value success" id="withdrawnUSD">$0.00</span>
+      </div>
+      
+      <div class="detail-row">
+        <span class="detail-label"><i class="fas fa-hand-holding-usd"></i> You Received</span>
+        <span class="detail-value" id="receivedAmount">₦0.00</span>
+      </div>
+      
+      <div class="detail-row">
+        <span class="detail-label"><i class="fas fa-percentage"></i> Transfer Charge</span>
+        <span class="detail-value warning" id="chargeAmount">₦0.00</span>
+      </div>
+      
+      <div class="detail-row">
+        <span class="detail-label"><i class="fas fa-university"></i> Payment Method</span>
+        <span class="detail-value" id="paymentMethod">Bank Transfer</span>
+      </div>
+      
+      <div class="detail-row">
+        <span class="detail-label"><i class="fas fa-info-circle"></i> Status</span>
+        <span class="status-badge">
+          <i class="fas fa-circle"></i> Completed
+        </span>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="action-buttons">
+      <a href="board.html" class="btn btn-primary">
+        <i class="fas fa-home"></i>
+        Back to Dashboard
+      </a>
+      <a href="history.html" class="btn btn-secondary">
+        <i class="fas fa-history"></i>
+        View Transaction History
+      </a>
+    </div>
+
+    <!-- Processing Info -->
+    <div class="processing-info">
+      <div class="processing-icon">
+        <i class="fas fa-clock"></i>
+      </div>
+      <div class="processing-text">
+        <strong>Processing Time:</strong> Bank transfers typically take 2-3 minutes. Crypto withdrawals are usually processed within 5-10 minutes.
+      </div>
+    </div>
+  </div>
+
+  <script src="Js/firebase.js"></script>
+
+  <script>
+    let currentUser = null;
+    let db = null;
+    let notificationPermission = false;
+    let withdrawalData = null; // Store data globally for this session
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Initialize Firestore
+      if (typeof firebase !== 'undefined' && firebase.apps.length > 0) {
+        db = firebase.firestore();
+      }
+      
+      // IMMEDIATELY try to read data (before auth check)
+      readWithdrawalData();
+      
+      // Check auth and process
+      firebase.auth().onAuthStateChanged((user) => {
+        if (user) {
+          currentUser = user;
+        }
+        // Process with whatever data we have
+        processSuccess();
+        createConfetti();
+        checkNotificationPermission();
+      });
+    });
+
+    // ==================== READ DATA IMMEDIATELY ====================
+    
+    function readWithdrawalData() {
+      // Try to read from localStorage FIRST (before anything else clears it)
+      const data = {
+        pendingUSD: parseFloat(localStorage.getItem('pendingWithdrawUSD')) || 0,
+        pendingNGN: parseFloat(localStorage.getItem('pendingWithdrawNGN')) || 0,
+        transferCharge: parseFloat(localStorage.getItem('pendingChargeNGN')) || 0,
+        networkFee: parseFloat(localStorage.getItem('pendingNetworkFee')) || 0,
+        withdrawalType: localStorage.getItem('withdrawalType') || 'naira',
+        transactionId: localStorage.getItem('pendingTransactionId') || '',
+        bank: localStorage.getItem('withdrawalBank') || '',
+        accountNumber: localStorage.getItem('withdrawalAccount') || '',
+        accountName: localStorage.getItem('withdrawalName') || '',
+        walletAddress: localStorage.getItem('withdrawalAddress') || '',
+        paymentConfirmed: localStorage.getItem('paymentConfirmed') === 'true'
+      };
+      
+      // If no pending data, try to get from the most recent transaction in history
+      if (data.pendingUSD <= 0) {
+        const transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+        const lastWithdrawal = transactions.find(t => t.type === 'withdrawal');
+        
+        if (lastWithdrawal) {
+          console.log('Found last withdrawal in history:', lastWithdrawal);
+          data.pendingUSD = Math.abs(parseFloat(lastWithdrawal.amount) || 0);
+          data.pendingNGN = lastWithdrawal.ngnAmount || 0;
+          data.transferCharge = lastWithdrawal.charge || 0;
+          data.networkFee = lastWithdrawal.networkFee || 0;
+          data.withdrawalType = lastWithdrawal.walletAddress ? 'crypto' : 'naira';
+          data.transactionId = lastWithdrawal.id || '';
+          data.bank = lastWithdrawal.bank || '';
+          data.accountNumber = lastWithdrawal.accountNumber || '';
+          data.accountName = lastWithdrawal.accountName || '';
+          data.walletAddress = lastWithdrawal.walletAddress || '';
+          data.paymentConfirmed = true; // Assume confirmed if in history
+        }
+      }
+      
+      withdrawalData = data;
+      
+      // Debug logging
+      console.log('=== WITHDRAWAL DATA READ ===');
+      console.log('USD:', data.pendingUSD);
+      console.log('NGN:', data.pendingNGN);
+      console.log('Type:', data.withdrawalType);
+      console.log('Txn ID:', data.transactionId);
+      console.log('Payment Confirmed:', data.paymentConfirmed);
+      
+      // Show debug info if no data found
+      if (data.pendingUSD <= 0) {
+        document.getElementById('debugInfo').classList.add('show');
+        document.getElementById('debugText').textContent = 
+          'No withdrawal data found in localStorage.\n' +
+          'Keys checked: pendingWithdrawUSD=' + localStorage.getItem('pendingWithdrawUSD') + 
+          ', paymentConfirmed=' + localStorage.getItem('paymentConfirmed');
+      }
+    }
+
+    // ==================== NOTIFICATION SYSTEM ====================
+    
+    function checkNotificationPermission() {
+      if (!('Notification' in window)) {
+        console.log('This browser does not support notifications');
+        return;
+      }
+      
+      if (Notification.permission === 'default') {
+        setTimeout(() => {
+          document.getElementById('notificationPermission').classList.add('show');
+        }, 2000);
+      } else if (Notification.permission === 'granted') {
+        notificationPermission = true;
+      }
+    }
+
+    function requestNotificationPermission() {
+      if (!('Notification' in window)) {
+        Swal.fire({
+          title: 'Not Supported',
+          text: 'Your browser does not support notifications.',
+          icon: 'info',
+          confirmButtonColor: '#6366f1',
+          background: '#0f172a',
+          color: '#f8fafc'
+        });
+        return;
+      }
+
+      Notification.requestPermission().then((permission) => {
+        if (permission === 'granted') {
+          notificationPermission = true;
+          document.getElementById('notificationPermission').classList.remove('show');
+          sendWithdrawalNotification();
+          
+          Swal.fire({
+            toast: true,
+            position: 'top',
+            title: 'Notifications Enabled!',
+            text: 'You will receive withdrawal alerts.',
+            icon: 'success',
+            timer: 3000,
+            showConfirmButton: false,
+            background: '#0f172a',
+            color: '#f8fafc'
+          });
+        } else {
+          Swal.fire({
+            title: 'Notifications Blocked',
+            text: 'You can enable them later in your browser settings.',
+            icon: 'info',
+            confirmButtonColor: '#6366f1',
+            background: '#0f172a',
+            color: '#f8fafc'
+          });
+        }
+      });
+    }
+
+    function sendWithdrawalNotification() {
+      if (!notificationPermission) return;
+      
+      const usd = withdrawalData ? withdrawalData.pendingUSD : 0;
+      const ngn = withdrawalData ? withdrawalData.pendingNGN : 0;
+      const type = withdrawalData ? withdrawalData.withdrawalType : 'naira';
+      
+      const title = '💰 Withdrawal Successful!';
+      const options = {
+        body: `You have successfully withdrawn $${usd.toFixed(2)} ${type === 'crypto' ? 'USDT' : '(₦' + ngn.toLocaleString('en-NG') + ')'}. Check your account!`,
+        icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
+        badge: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
+        tag: 'withdrawal-success',
+        requireInteraction: true,
+        data: {
+          url: window.location.origin + '/history.html'
+        }
+      };
+
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'SHOW_NOTIFICATION',
+          title: title,
+          options: options
+        });
+      } else {
+        new Notification(title, options);
+      }
+    }
+
+    // ==================== SUCCESS PROCESSING ====================
+
+    async function processSuccess() {
+      if (!withdrawalData) {
+        console.error('No withdrawal data available');
+        showEmptyState();
+        return;
+      }
+
+      const data = withdrawalData;
+      
+      // Check if we have valid data
+      if (data.pendingUSD <= 0) {
+        console.log('No pending withdrawal amount found');
+        showEmptyState();
+        return;
+      }
+
+      // Deduct balance from localStorage
+      let balance = parseFloat(localStorage.getItem('balance')) || 0;
+      
+      // Only deduct if we haven't already (check if transaction is still pending)
+      const transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+      const existingTxn = transactions.find(t => t.id === data.transactionId);
+      
+      if (existingTxn && existingTxn.status === 'completed') {
+        console.log('Transaction already completed, skipping deduction');
+        // Just display the details without deducting again
+        displayDetails(data.pendingUSD, data.pendingNGN, data.transferCharge, data.withdrawalType, data.transactionId, data.networkFee);
+        
+        // Still clear any remaining pending data
+        clearPendingData();
+        return;
+      }
+      
+      if (balance >= data.pendingUSD) {
+        // Deduct the withdrawal amount
+        balance -= data.pendingUSD;
+        localStorage.setItem('balance', balance.toFixed(2));
+        console.log('Balance deducted. New balance:', balance);
+        
+        // Update transaction from pending → completed
+        updateLocalTransaction(data);
+        
+        // Update Firestore
+        if (currentUser && db) {
+          try {
+            await updateFirestoreTransaction(data.transactionId, data.pendingUSD, balance);
+            console.log('Firestore updated');
+          } catch (error) {
+            console.error('Firestore update failed:', error);
+          }
+        }
+        
+        // Display details on page
+        displayDetails(data.pendingUSD, data.pendingNGN, data.transferCharge, data.withdrawalType, data.transactionId, data.networkFee);
+        
+        // Send notification if permission granted
+        if (notificationPermission) {
+          sendWithdrawalNotification();
+        }
+        
+        // Clear ALL pending data AFTER everything is done
+        clearPendingData();
+        
+        console.log('=== SUCCESS PROCESSING COMPLETE ===');
+        
+      } else {
+        console.error('Insufficient balance:', balance, 'needed:', data.pendingUSD);
+        Swal.fire({
+          title: 'Error',
+          text: 'Insufficient balance for this withdrawal.',
+          icon: 'error',
+          confirmButtonColor: '#6366f1',
+          background: '#0f172a',
+          color: '#f8fafc'
+        }).then(() => {
+          window.location.href = 'board.html';
+        });
+      }
+    }
+
+    function showEmptyState() {
+      document.getElementById('withdrawnUSD').textContent = '$0.00';
+      document.getElementById('receivedAmount').textContent = '₦0.00';
+      document.getElementById('chargeAmount').textContent = '₦0.00';
+      document.getElementById('transactionRef').textContent = '#TXN000000';
+      document.getElementById('paymentMethod').textContent = 'Bank Transfer';
+    }
+
+    function displayDetails(usd, ngn, charge, type, txnId, networkFee) {
+      console.log('Displaying details:', { usd, ngn, charge, type, txnId });
+      
+      document.getElementById('withdrawnUSD').textContent = '$' + (usd || 0).toFixed(2);
+      document.getElementById('transactionRef').textContent = '#' + (txnId || 'TXN000000').slice(-6);
+      
+      if (type === 'crypto') {
+        document.getElementById('receivedAmount').textContent = '$' + (usd || 0).toFixed(2) + ' USDT';
+        document.getElementById('chargeAmount').textContent = '$' + (networkFee || 0).toFixed(2);
+        document.getElementById('paymentMethod').textContent = 'Crypto (USDT TRC20)';
+      } else {
+        document.getElementById('receivedAmount').textContent = '₦' + (ngn || 0).toLocaleString('en-NG', { minimumFractionDigits: 2 });
+        document.getElementById('chargeAmount').textContent = '₦' + (charge || 0).toLocaleString('en-NG', { minimumFractionDigits: 2 });
+        document.getElementById('paymentMethod').textContent = 'Bank Transfer';
+      }
+    }
+
+    function updateLocalTransaction(data) {
+      const transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+      const txnIndex = transactions.findIndex(t => t.id === data.transactionId);
+      
+      const completedData = {
+        status: 'completed',
+        completedDate: new Date().toISOString(),
+        completedAt: Date.now(),
+        finalAmount: data.pendingUSD,
+        ngnAmount: data.pendingNGN,
+        charge: data.transferCharge,
+        networkFee: data.networkFee,
+        title: data.withdrawalType === 'crypto' ? 'Crypto Withdrawal - USDT (Completed)' : 'Bank Withdrawal (Completed)',
+        description: data.withdrawalType === 'crypto' 
+          ? `Crypto withdrawal completed • ${data.walletAddress}`
+          : `Bank withdrawal completed • ${data.bank} • ${data.accountNumber}`
+      };
+      
+      if (txnIndex !== -1) {
+        // Update existing transaction
+        Object.assign(transactions[txnIndex], completedData);
+        console.log('Updated existing transaction at index:', txnIndex);
+      } else {
+        // Create new completed transaction
+        transactions.unshift({
+          id: data.transactionId,
+          type: 'withdrawal',
+          title: completedData.title,
+          amount: -(data.pendingUSD),
+          status: 'completed',
+          date: new Date().toISOString(),
+          ...completedData
+        });
+        console.log('Created new transaction');
+      }
+      
+      localStorage.setItem('transactions', JSON.stringify(transactions));
+      console.log('Transactions saved. Count:', transactions.length);
+    }
+
+    async function updateFirestoreTransaction(txnId, usd, newBalance) {
+      if (!currentUser || !db) {
+        console.log('Skipping Firestore - no user or db');
+        return;
+      }
+      
+      const userId = currentUser.uid;
+      
+      try {
+        // Update user's transaction to completed
+        const userTxnRef = db.collection('users').doc(userId).collection('transactions').doc(txnId);
+        const userTxnDoc = await userTxnRef.get();
+        
+        if (userTxnDoc.exists) {
+          await userTxnRef.update({
+            status: 'completed',
+            completedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            completedDate: new Date().toISOString(),
+            finalBalance: newBalance
+          });
+        } else {
+          await userTxnRef.set({
+            id: txnId,
+            type: 'withdrawal',
+            status: 'completed',
+            amount: -(usd),
+            completedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            completedDate: new Date().toISOString(),
+            finalBalance: newBalance,
+            userId: userId,
+            userEmail: currentUser.email || localStorage.getItem('email') || 'unknown'
+          });
+        }
+        
+        // Update global withdrawal
+        const withdrawalRef = db.collection('withdrawals').doc(txnId);
+        const withdrawalDoc = await withdrawalRef.get();
+        
+        if (withdrawalDoc.exists) {
+          await withdrawalRef.update({
+            status: 'completed',
+            completedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            completedDate: new Date().toISOString(),
+            finalBalance: newBalance,
+            processedBy: 'system',
+            processedAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        }
+        
+        // Update user's main balance in Firestore
+        await db.collection('users').doc(userId).update({
+          balance: newBalance,
+          lastWithdrawal: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        console.log('Firestore fully updated');
+        
+      } catch (error) {
+        console.error('Firestore error:', error);
+        throw error;
+      }
+    }
+
+    function clearPendingData() {
+      const keysToRemove = [
+        'pendingWithdrawUSD',
+        'pendingWithdrawNGN',
+        'pendingChargeNGN',
+        'pendingWithdrawCrypto',
+        'pendingNetworkFee',
+        'pendingBalanceDeduction',
+        'pendingTransactionId',
+        'withdrawalType',
+        'withdrawalBank',
+        'withdrawalAccount',
+        'withdrawalName',
+        'withdrawalAddress',
+        'paymentConfirmed',
+        'paymentConfirmedAt'
+      ];
+      
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+      console.log('Pending data cleared');
+    }
+
+    // ==================== VISUAL EFFECTS ====================
+
+    function createConfetti() {
+      const container = document.getElementById('confetti');
+      const colors = ['#10b981', '#06b6d4', '#6366f1', '#8b5cf6', '#f59e0b', '#ef4444', '#ffd700'];
+      
+      for (let i = 0; i < 60; i++) {
+        const piece = document.createElement('div');
+        piece.className = 'confetti-piece';
+        piece.style.left = Math.random() * 100 + '%';
+        piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+        piece.style.width = (Math.random() * 8 + 4) + 'px';
+        piece.style.height = (Math.random() * 8 + 4) + 'px';
+        piece.style.animationDelay = Math.random() * 3 + 's';
+        piece.style.animationDuration = (Math.random() * 3 + 2) + 's';
+        piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+        container.appendChild(piece);
+      }
+      
+      setTimeout(() => {
+        container.innerHTML = '';
+      }, 8000);
+    }
+
+    // Service Worker for notifications
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(err => {
+        console.log('SW registration failed:', err);
+      });
+    }
+
+    const style = document.createElement('style');
+    style.textContent = `
+      .swal2-popup {
+        border: 1px solid rgba(99, 102, 241, 0.3) !important;
+        border-radius: 20px !important;
+      }
+    `;
+    document.head.appendChild(style);
+  </script>
+</body>
+</html>

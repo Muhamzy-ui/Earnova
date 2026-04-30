@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Earnova | Withdraw Funds</title>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://kit.fontawesome.com/c03cee45d4.js" crossorigin="anonymous"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    :root {
+      --primary: #6366f1;
+      --primary-dark: #4f46e5;
+      --secondary: #06b6d4;
+      --accent: #8b5cf6;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --dark: #0f172a;
+      --darker: #020617;
+      --card: #1e293b;
+      --card-hover: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: rgba(255, 255, 255, 0.1);
+      --gradient-1: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      --gradient-success: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
+      --gradient-warning: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+      --shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--darker);
+      color: var(--text);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .bg-animation {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -2;
+      background: 
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(6, 182, 212, 0.15) 0px, transparent 50%);
+      animation: bgPulse 15s ease infinite;
+    }
+
+    @keyframes bgPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+
+    .orbs {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.4;
+      animation: orbFloat 20s infinite ease-in-out;
+    }
+
+    .orb-1 { width: 300px; height: 300px; background: var(--primary); top: -10%; left: -10%; }
+    .orb-2 { width: 250px; height: 250px; background: var(--secondary); bottom: -10%; right: -10%; animation-delay: 5s; }
+
+    @keyframes orbFloat {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(30px, -30px) scale(1.1); }
+    }
+
+    .header {
+      position: fixed;
+      top: 0;
+      width: 100%;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 1000;
+      background: rgba(15, 23, 42, 0.9);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .back-btn {
+      width: 40px;
+      height: 40px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-decoration: none;
+    }
+
+    .back-btn:hover {
+      background: rgba(99, 102, 241, 0.1);
+      border-color: var(--primary);
+    }
+
+    .header-title {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 100px 20px 40px;
+    }
+
+    .balance-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 24px;
+      margin-bottom: 24px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      animation: slideUp 0.5s ease;
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .balance-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--gradient-1);
+    }
+
+    .balance-label {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .balance-amount {
+      font-size: 36px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #fff 0%, var(--text-muted) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+
+    .balance-conversion {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .balance-conversion span {
+      color: var(--success);
+      font-weight: 600;
+    }
+
+    .tab-switcher {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 6px;
+      margin-bottom: 24px;
+      position: relative;
+      display: flex;
+      animation: slideUp 0.5s ease 0.1s both;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 12px;
+      background: transparent;
+      border: none;
+      border-radius: 12px;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .tab-btn.active {
+      color: white;
+    }
+
+    .tab-slider {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      height: calc(100% - 12px);
+      width: calc(50% - 6px);
+      background: var(--gradient-1);
+      border-radius: 12px;
+      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 1;
+      box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+    }
+
+    .tab-slider.crypto {
+      transform: translateX(100%);
+    }
+
+    .form-container {
+      position: relative;
+      overflow: hidden;
+      min-height: 500px;
+    }
+
+    .form-section {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      opacity: 0;
+      transform: translateX(50px);
+      pointer-events: none;
+    }
+
+    .form-section.active {
+      opacity: 1;
+      transform: translateX(0);
+      pointer-events: all;
+      position: relative;
+    }
+
+    .form-section.exit {
+      opacity: 0;
+      transform: translateX(-50px);
+    }
+
+    .form-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 24px;
+      margin-bottom: 20px;
+      animation: slideUp 0.5s ease;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group:last-child {
+      margin-bottom: 0;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .input-wrapper {
+      position: relative;
+    }
+
+    .input-icon {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 16px;
+      transition: all 0.3s ease;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select {
+      width: 100%;
+      padding: 14px 16px 14px 48px;
+      background: rgba(15, 23, 42, 0.6);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 15px;
+      outline: none;
+      transition: all 0.3s ease;
+    }
+
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    select:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+    }
+
+    input[type="text"]:focus + .input-icon,
+    input[type="number"]:focus + .input-icon,
+    select:focus + .input-icon {
+      color: var(--primary);
+    }
+
+    input::placeholder {
+      color: var(--text-muted);
+      opacity: 0.6;
+    }
+
+    select {
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 16px center;
+      background-size: 16px;
+      padding-right: 48px;
+    }
+
+    select option {
+      background: var(--card);
+      color: var(--text);
+    }
+
+    .fee-summary {
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
+      border: 1px solid rgba(99, 102, 241, 0.2);
+      border-radius: 16px;
+      padding: 20px;
+      margin: 20px 0;
+      animation: slideUp 0.5s ease;
+    }
+
+    .fee-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .fee-row:last-child {
+      border-bottom: none;
+      padding-top: 12px;
+      margin-top: 4px;
+    }
+
+    .fee-label {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .fee-value {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .fee-value.receive {
+      color: var(--success);
+      font-size: 18px;
+    }
+
+    .fee-value.charge {
+      color: var(--warning);
+    }
+
+    .charge-progress {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 3px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+
+    .charge-progress-bar {
+      height: 100%;
+      background: var(--gradient-warning);
+      border-radius: 3px;
+      transition: width 0.5s ease;
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 16px;
+      background: var(--gradient-1);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .submit-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(99, 102, 241, 0.6);
+    }
+
+    .submit-btn:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+
+    .submit-btn:disabled {
+      background: var(--card-hover);
+      color: var(--text-muted);
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .submit-btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      transition: 0.5s;
+    }
+
+    .submit-btn:hover::before {
+      left: 100%;
+    }
+
+    .info-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 20px;
+    }
+
+    .info-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    .info-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .info-item i {
+      color: var(--primary);
+      font-size: 14px;
+    }
+
+    .error-msg {
+      color: var(--danger);
+      font-size: 12px;
+      margin-top: 6px;
+      display: none;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .error-msg.show {
+      display: flex;
+    }
+
+    .crypto-address {
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+    }
+
+    .network-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      border-radius: 20px;
+      font-size: 12px;
+      color: var(--success);
+      margin-bottom: 12px;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+
+    .shake {
+      animation: shake 0.3s ease;
+    }
+
+    @media (max-width: 640px) {
+      .container {
+        padding: 90px 16px 40px;
+      }
+      
+      .balance-amount {
+        font-size: 28px;
+      }
+      
+      .tab-btn {
+        font-size: 13px;
+        padding: 10px;
+      }
+      
+      .form-card {
+        padding: 20px;
+      }
+    }
+
+    .loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.9);
+      backdrop-filter: blur(10px);
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .loading-overlay.active {
+      display: flex;
+    }
+
+    .spinner {
+      width: 60px;
+      height: 60px;
+      border: 3px solid rgba(99, 102, 241, 0.1);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      color: var(--text);
+      font-size: 16px;
+      font-weight: 500;
+    }
+
+    .fee-notice {
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+      border-radius: 12px;
+      padding: 12px 16px;
+      margin-top: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--warning);
+    }
+
+    .fee-notice i {
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-animation"></div>
+  <div class="orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+  </div>
+
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <div class="loading-text">Processing withdrawal...</div>
+  </div>
+
+  <header class="header">
+    <a href="board.html" class="back-btn">
+      <i class="fas fa-arrow-left"></i>
+    </a>
+    <div class="header-title">Withdraw Funds</div>
+    <div style="width: 40px;"></div>
+  </header>
+
+  <div class="container">
+    <div class="balance-card">
+      <div class="balance-label">
+        <i class="fas fa-wallet"></i>
+        Available Balance
+      </div>
+      <div class="balance-amount" id="balanceDisplay">$0.00</div>
+      <div class="balance-conversion">
+        ≈ <span id="ngnBalance">₦0</span> at <span>$1 = ₦1,500</span>
+      </div>
+    </div>
+
+    <div class="tab-switcher">
+      <div class="tab-slider" id="tabSlider"></div>
+      <button class="tab-btn active" onclick="switchTab('naira')">
+        <i class="fas fa-university"></i>
+        Naira Bank
+      </button>
+      <button class="tab-btn" onclick="switchTab('crypto')">
+        <i class="fab fa-bitcoin"></i>
+        Crypto
+      </button>
+    </div>
+
+    <div class="form-container">
+      <div class="form-section active" id="nairaForm">
+        <div class="form-card">
+          <div class="form-group">
+            <label>Amount to Withdraw (USD)</label>
+            <div class="input-wrapper">
+              <i class="fas fa-dollar-sign input-icon"></i>
+              <input type="number" id="nairaAmount" min="50" max="500" step="1" placeholder="Min $50 - Max $500">
+            </div>
+            <div class="error-msg" id="nairaAmountError">
+              <i class="fas fa-exclamation-circle"></i>
+              Amount must be between $50-$500 and not exceed your balance.
+            </div>
+          </div>
+
+          <div class="fee-summary" id="nairaFeeDisplay" style="display: none;">
+            <div class="fee-row">
+              <span class="fee-label">You will receive</span>
+              <span class="fee-value receive">₦<span id="receiveNGN">0</span></span>
+            </div>
+            <div class="fee-row">
+              <span class="fee-label">Transfer Charge (Paid Separately)</span>
+              <span class="fee-value charge">₦<span id="chargeNGN">0</span></span>
+            </div>
+            <div class="charge-progress">
+              <div class="charge-progress-bar" id="chargeProgressBar"></div>
+            </div>
+            <div class="fee-row">
+              <span class="fee-label">Amount from Balance</span>
+              <span class="fee-value">$<span id="totalUSD">0</span></span>
+            </div>
+          </div>
+
+          <div class="fee-notice" id="feeNotice" style="display: none;">
+            <i class="fas fa-info-circle"></i>
+            <span>Transfer charge is paid separately - not deducted from your balance</span>
+          </div>
+
+          <div class="form-group">
+            <label>Account Name</label>
+            <div class="input-wrapper">
+              <i class="fas fa-user input-icon"></i>
+              <input type="text" id="accName" placeholder="Full name on account">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Account Number</label>
+            <div class="input-wrapper">
+              <i class="fas fa-hashtag input-icon"></i>
+              <input type="text" id="accNumber" placeholder="Enter account number">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Bank Name</label>
+            <div class="input-wrapper">
+              <i class="fas fa-university input-icon"></i>
+              <select id="bankName">
+                <option value="" disabled selected>Select your bank</option>
+                <option value="Access Bank">Access Bank</option>
+                <option value="Citibank Nigeria">Citibank Nigeria</option>
+                <option value="Ecobank Nigeria">Ecobank Nigeria</option>
+                <option value="Fidelity Bank">Fidelity Bank</option>
+                <option value="First Bank of Nigeria">First Bank of Nigeria</option>
+                <option value="FCMB">First City Monument Bank (FCMB)</option>
+                <option value="Globus Bank">Globus Bank</option>
+                <option value="GTBank">GTBank (Guaranty Trust Bank)</option>
+                <option value="Heritage Bank">Heritage Bank</option>
+                <option value="Keystone Bank">Keystone Bank</option>
+                <option value="Opay">Opay</option>
+                <option value="PalmPay">PalmPay</option>
+                <option value="Polaris Bank">Polaris Bank</option>
+                <option value="Providus Bank">Providus Bank</option>
+                <option value="Stanbic IBTC">Stanbic IBTC Bank</option>
+                <option value="Standard Chartered">Standard Chartered</option>
+                <option value="Sterling Bank">Sterling Bank</option>
+                <option value="Suntrust Bank">Suntrust Bank</option>
+                <option value="Taj Bank">Taj Bank</option>
+                <option value="Union Bank">Union Bank of Nigeria</option>
+                <option value="UBA">United Bank for Africa (UBA)</option>
+                <option value="Unity Bank">Unity Bank</option>
+                <option value="Wema Bank">Wema Bank</option>
+                <option value="Zenith Bank">Zenith Bank</option>
+                <option value="Other">Other Banks</option>
+              </select>
+            </div>
+          </div>
+
+          <button class="submit-btn" id="nairaSubmitBtn" disabled onclick="processNairaWithdrawal()">
+            <span>Proceed to Payment</span>
+            <i class="fas fa-arrow-right"></i>
+          </button>
+        </div>
+
+        <div class="info-card">
+          <div class="info-item">
+            <i class="fas fa-info-circle"></i>
+            <span>Exchange rate: $1 = ₦1,500 (fixed)</span>
+          </div>
+          <div class="info-item">
+            <i class="fas fa-clock"></i>
+            <span>Processing time: 2-3 minutes</span>
+          </div>
+          <div class="info-item">
+            <i class="fas fa-shield-alt"></i>
+            <span>Minimum withdrawal: $50 • Maximum: $500</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section" id="cryptoForm">
+        <div class="form-card">
+          <div class="network-badge">
+            <i class="fas fa-check-circle"></i>
+            USDT (TRC20) Network
+          </div>
+
+          <div class="form-group">
+            <label>Amount to Withdraw (USDT)</label>
+            <div class="input-wrapper">
+              <i class="fas fa-dollar-sign input-icon"></i>
+              <input type="number" id="cryptoAmount" min="50" max="500" step="1" placeholder="Min $50 - Max $500">
+            </div>
+            <div class="error-msg" id="cryptoAmountError">
+              <i class="fas fa-exclamation-circle"></i>
+              Amount must be between $50-$500 and not exceed your balance.
+            </div>
+          </div>
+
+          <div class="fee-summary" id="cryptoFeeDisplay" style="display: none;">
+            <div class="fee-row">
+              <span class="fee-label">You will receive</span>
+              <span class="fee-value receive">$<span id="receiveCrypto">0</span> USDT</span>
+            </div>
+            <div class="fee-row">
+              <span class="fee-label">Network Fee (Paid Separately)</span>
+              <span class="fee-value charge">$<span id="networkFee">0</span></span>
+            </div>
+            <div class="charge-progress">
+              <div class="charge-progress-bar" id="cryptoChargeProgressBar"></div>
+            </div>
+            <div class="fee-row">
+              <span class="fee-label">Amount from Balance</span>
+              <span class="fee-value">$<span id="totalCryptoUSD">0</span></span>
+            </div>
+          </div>
+
+          <div class="fee-notice" id="cryptoFeeNotice" style="display: none;">
+            <i class="fas fa-info-circle"></i>
+            <span>Network fee is paid separately - not deducted from your balance</span>
+          </div>
+
+          <div class="form-group">
+            <label>Wallet Address (TRC20)</label>
+            <div class="input-wrapper">
+              <i class="fas fa-wallet input-icon"></i>
+              <input type="text" id="walletAddress" class="crypto-address" placeholder="Enter TRC20 wallet address">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Confirm Wallet Address</label>
+            <div class="input-wrapper">
+              <i class="fas fa-check-double input-icon"></i>
+              <input type="text" id="confirmWalletAddress" class="crypto-address" placeholder="Re-enter wallet address">
+            </div>
+          </div>
+
+          <button class="submit-btn" id="cryptoSubmitBtn" disabled onclick="processCryptoWithdrawal()">
+            <span>Proceed to Crypto Payment</span>
+            <i class="fas fa-arrow-right"></i>
+          </button>
+        </div>
+
+        <div class="info-card">
+          <div class="info-item">
+            <i class="fas fa-info-circle"></i>
+            <span>Network: USDT (TRC20) - Tron Network</span>
+          </div>
+          <div class="info-item">
+            <i class="fas fa-clock"></i>
+            <span>Processing time: 5-10 minutes</span>
+          </div>
+          <div class="info-item">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span>Double-check your address - transactions cannot be reversed</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="Js/firebase.js"></script>
+  <script>
+    const RATE = 1500;
+    let balance = parseFloat(localStorage.getItem('balance')) || 0;
+    let currentTab = 'naira';
+    let currentUser = null;
+
+    // Initialize auth
+    document.addEventListener('DOMContentLoaded', () => {
+      firebase.auth().onAuthStateChanged((user) => {
+        if (user) {
+          currentUser = user;
+        }
+      });
+      updateBalanceDisplay();
+      setupEventListeners();
+    });
+
+    function updateBalanceDisplay() {
+      document.getElementById('balanceDisplay').textContent = '$' + balance.toFixed(2);
+      document.getElementById('ngnBalance').textContent = '₦' + (balance * RATE).toLocaleString('en-NG');
+    }
+
+    function calculateNairaCharge(usdAmount) {
+      if (usdAmount <= 50) return 150 * 50;
+      if (usdAmount <= 100) return 140 * usdAmount;
+      if (usdAmount <= 200) return 130 * usdAmount;
+      if (usdAmount <= 300) return 120 * usdAmount;
+      if (usdAmount <= 400) return 110 * usdAmount;
+      return 100 * usdAmount;
+    }
+
+    function calculateCryptoFee(usdAmount) {
+      const baseFee = 6;
+      const percentFee = usdAmount * 0.05;
+      return baseFee + percentFee;
+    }
+
+    function switchTab(tab) {
+      if (tab === currentTab) return;
+      currentTab = tab;
+      const slider = document.getElementById('tabSlider');
+      const nairaForm = document.getElementById('nairaForm');
+      const cryptoForm = document.getElementById('cryptoForm');
+      const buttons = document.querySelectorAll('.tab-btn');
+      
+      buttons.forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+      
+      if (tab === 'crypto') {
+        slider.classList.add('crypto');
+      } else {
+        slider.classList.remove('crypto');
+      }
+      
+      if (tab === 'crypto') {
+        nairaForm.classList.remove('active');
+        nairaForm.classList.add('exit');
+        setTimeout(() => {
+          nairaForm.classList.remove('exit');
+          nairaForm.style.display = 'none';
+          cryptoForm.style.display = 'block';
+          setTimeout(() => cryptoForm.classList.add('active'), 50);
+        }, 400);
+      } else {
+        cryptoForm.classList.remove('active');
+        cryptoForm.classList.add('exit');
+        setTimeout(() => {
+          cryptoForm.classList.remove('exit');
+          cryptoForm.style.display = 'none';
+          nairaForm.style.display = 'block';
+          setTimeout(() => nairaForm.classList.add('active'), 50);
+        }, 400);
+      }
+    }
+
+    function setupEventListeners() {
+      document.getElementById('nairaAmount').addEventListener('input', function() {
+        const usd = parseFloat(this.value) || 0;
+        const feeDisplay = document.getElementById('nairaFeeDisplay');
+        const feeNotice = document.getElementById('feeNotice');
+        const errorMsg = document.getElementById('nairaAmountError');
+        const submitBtn = document.getElementById('nairaSubmitBtn');
+        
+        if (usd >= 50 && usd <= 500 && usd <= balance && usd > 0) {
+          const receive = usd * RATE;
+          const charge = calculateNairaCharge(usd);
+          document.getElementById('receiveNGN').textContent = Math.round(receive).toLocaleString('en-NG');
+          document.getElementById('chargeNGN').textContent = Math.round(charge).toLocaleString('en-NG');
+          document.getElementById('totalUSD').textContent = usd.toFixed(2);
+          const chargePercent = (charge / (receive + charge)) * 100;
+          document.getElementById('chargeProgressBar').style.width = chargePercent + '%';
+          feeDisplay.style.display = 'block';
+          feeNotice.style.display = 'flex';
+          errorMsg.classList.remove('show');
+          submitBtn.disabled = false;
+        } else {
+          feeDisplay.style.display = 'none';
+          feeNotice.style.display = 'none';
+          errorMsg.classList.add('show');
+          submitBtn.disabled = true;
+          if (usd > balance) {
+            errorMsg.innerHTML = '<i class="fas fa-exclamation-circle"></i> Amount exceeds your balance of $' + balance.toFixed(2);
+          } else {
+            errorMsg.innerHTML = '<i class="fas fa-exclamation-circle"></i> Amount must be between $50-$500.';
+          }
+        }
+      });
+
+      document.getElementById('cryptoAmount').addEventListener('input', function() {
+        const usd = parseFloat(this.value) || 0;
+        const feeDisplay = document.getElementById('cryptoFeeDisplay');
+        const feeNotice = document.getElementById('cryptoFeeNotice');
+        const errorMsg = document.getElementById('cryptoAmountError');
+        const submitBtn = document.getElementById('cryptoSubmitBtn');
+        
+        if (usd >= 50 && usd <= 500 && usd <= balance && usd > 0) {
+          const networkFee = calculateCryptoFee(usd);
+          const receive = usd;
+          document.getElementById('receiveCrypto').textContent = receive.toFixed(2);
+          document.getElementById('networkFee').textContent = networkFee.toFixed(2);
+          document.getElementById('totalCryptoUSD').textContent = usd.toFixed(2);
+          const feePercent = (networkFee / (usd + networkFee)) * 100;
+          document.getElementById('cryptoChargeProgressBar').style.width = feePercent + '%';
+          feeDisplay.style.display = 'block';
+          feeNotice.style.display = 'flex';
+          errorMsg.classList.remove('show');
+          submitBtn.disabled = false;
+        } else {
+          feeDisplay.style.display = 'none';
+          feeNotice.style.display = 'none';
+          errorMsg.classList.add('show');
+          submitBtn.disabled = true;
+          if (usd > balance) {
+            errorMsg.innerHTML = '<i class="fas fa-exclamation-circle"></i> Amount exceeds your balance of $' + balance.toFixed(2);
+          } else {
+            errorMsg.innerHTML = '<i class="fas fa-exclamation-circle"></i> Amount must be between $50-$500.';
+          }
+        }
+      });
+
+      document.getElementById('confirmWalletAddress').addEventListener('input', function() {
+        const original = document.getElementById('walletAddress').value;
+        const confirm = this.value;
+        if (confirm && original !== confirm) {
+          this.style.borderColor = 'var(--danger)';
+        } else {
+          this.style.borderColor = '';
+        }
+      });
+    }
+
+    // Save transaction to user's transaction history (both localStorage AND Firestore)
+    async function saveTransaction(data) {
+      const transactionId = data.id || ('TXN' + Date.now());
+      
+      // 1. Save to localStorage for immediate access
+      const transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+      transactions.unshift({
+        ...data,
+        id: transactionId,
+        timestamp: Date.now()
+      });
+      localStorage.setItem('transactions', JSON.stringify(transactions));
+      
+      // 2. Save to Firestore for cross-device sync and admin access
+      if (currentUser) {
+        try {
+          const db = firebase.firestore();
+          await db.collection('users').doc(currentUser.uid)
+            .collection('transactions')
+            .doc(transactionId)
+            .set({
+              ...data,
+              id: transactionId,
+              timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+              userId: currentUser.uid,
+              userEmail: currentUser.email || localStorage.getItem('email') || 'unknown'
+            });
+          console.log('Transaction saved to Firestore');
+        } catch (error) {
+          console.error('Error saving to Firestore:', error);
+        }
+      }
+      
+      // 3. Also save to global withdrawals collection for admin panel
+      if (data.type === 'withdrawal') {
+        try {
+          const db = firebase.firestore();
+          await db.collection('withdrawals').doc(transactionId).set({
+            ...data,
+            id: transactionId,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            userId: currentUser.uid,
+            userEmail: currentUser.email || localStorage.getItem('email') || 'unknown'
+          });
+        } catch (error) {
+          console.error('Error saving to withdrawals collection:', error);
+        }
+      }
+    }
+
+    function processNairaWithdrawal() {
+      const usd = parseFloat(document.getElementById('nairaAmount').value);
+      const name = document.getElementById('accName').value.trim();
+      const number = document.getElementById('accNumber').value.trim();
+      const bank = document.getElementById('bankName').value;
+      
+      if (!name || !number || !bank) {
+        Swal.fire({
+          title: 'Missing Details',
+          text: 'Please fill in all account details.',
+          icon: 'warning',
+          confirmButtonColor: '#6366f1',
+          background: '#0f172a',
+          color: '#f8fafc'
+        });
+        return;
+      }
+
+      if (usd < 50 || usd > 500 || usd > balance) {
+        Swal.fire({
+          title: 'Invalid Amount',
+          text: 'Please check your withdrawal amount.',
+          icon: 'error',
+          confirmButtonColor: '#6366f1',
+          background: '#0f172a',
+          color: '#f8fafc'
+        });
+        return;
+      }
+
+      const charge = calculateNairaCharge(usd);
+      const receive = usd * RATE;
+      const transactionId = 'TXN' + Date.now();
+
+      // Store ALL pending data for success page - DO NOT clear these until success page reads them
+      const pendingData = {
+        pendingWithdrawUSD: usd,
+        pendingWithdrawNGN: receive,
+        pendingChargeNGN: charge,
+        withdrawalType: 'naira',
+        withdrawalBank: bank,
+        withdrawalAccount: number,
+        withdrawalName: name,
+        pendingTransactionId: transactionId,
+        pendingBalanceDeduction: usd.toFixed(2)
+      };
+      
+      // Save all to localStorage
+      Object.keys(pendingData).forEach(key => {
+        localStorage.setItem(key, pendingData[key]);
+      });
+
+      document.getElementById('loadingOverlay').classList.add('active');
+
+      setTimeout(async () => {
+        document.getElementById('loadingOverlay').classList.remove('active');
+        
+        // Save as PENDING transaction to history
+        await saveTransaction({
+          id: transactionId,
+          type: 'withdrawal',
+          title: 'Bank Withdrawal - ' + bank,
+          amount: -usd,
+          status: 'pending',
+          date: new Date().toISOString(),
+          description: `Withdrawal to ${bank} • ${number} • ${name}`,
+          bank: bank,
+          accountNumber: number,
+          accountName: name,
+          ngnAmount: receive,
+          charge: charge,
+          deductionPending: true
+        });
+
+        // Redirect to payment page
+        window.location.href = 'bythr.html';
+      }, 1500);
+    }
+
+    function processCryptoWithdrawal() {
+      const usd = parseFloat(document.getElementById('cryptoAmount').value);
+      const address = document.getElementById('walletAddress').value.trim();
+      const confirmAddress = document.getElementById('confirmWalletAddress').value.trim();
+      
+      if (!address || !confirmAddress) {
+        Swal.fire({
+          title: 'Missing Address',
+          text: 'Please enter your wallet address.',
+          icon: 'warning',
+          confirmButtonColor: '#6366f1',
+          background: '#0f172a',
+          color: '#f8fafc'
+        });
+        return;
+      }
+
+      if (address !== confirmAddress) {
+        Swal.fire({
+          title: 'Address Mismatch',
+          text: 'Wallet addresses do not match.',
+          icon: 'error',
+          confirmButtonColor: '#6366f1',
+          background: '#0f172a',
+          color: '#f8fafc'
+        });
+        return;
+      }
+
+      if (usd < 50 || usd > 500 || usd > balance) {
+        Swal.fire({
+          title: 'Invalid Amount',
+          text: 'Please check your withdrawal amount.',
+          icon: 'error',
+          confirmButtonColor: '#6366f1',
+          background: '#0f172a',
+          color: '#f8fafc'
+        });
+        return;
+      }
+
+      const networkFee = calculateCryptoFee(usd);
+      const transactionId = 'TXN' + Date.now();
+
+      // Store ALL pending data for success page
+      const pendingData = {
+        pendingWithdrawUSD: usd,
+        pendingWithdrawCrypto: usd,
+        pendingNetworkFee: networkFee,
+        withdrawalType: 'crypto',
+        withdrawalAddress: address,
+        pendingTransactionId: transactionId,
+        pendingBalanceDeduction: usd.toFixed(2)
+      };
+      
+      Object.keys(pendingData).forEach(key => {
+        localStorage.setItem(key, pendingData[key]);
+      });
+
+      document.getElementById('loadingOverlay').classList.add('active');
+
+      setTimeout(async () => {
+        document.getElementById('loadingOverlay').classList.remove('active');
+        
+        // Save as PENDING transaction to history
+        await saveTransaction({
+          id: transactionId,
+          type: 'withdrawal',
+          title: 'Crypto Withdrawal - USDT',
+          amount: -usd,
+          status: 'pending',
+          date: new Date().toISOString(),
+          description: `USDT withdrawal to ${address.substring(0, 10)}...`,
+          walletAddress: address,
+          networkFee: networkFee,
+          deductionPending: true
+        });
+
+        // Redirect to crypto payment page
+        window.location.href = 'cryptopay.html';
+      }, 1500);
+    }
+
+    const style = document.createElement('style');
+    style.textContent = `
+      .swal2-popup {
+        border: 1px solid rgba(99, 102, 241, 0.3) !important;
+        border-radius: 20px !important;
+      }
+    `;
+    document.head.appendChild(style);
+  </script>
+</body>
+</html>
