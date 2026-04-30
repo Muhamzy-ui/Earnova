@@ -1078,7 +1078,7 @@
         // Format time
         let timeStr = 'Just now';
         if (data.timestamp) {
-          const ts = data.timestamp.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
+          const ts = (data.timestamp && typeof data.timestamp.toDate === 'function') ? data.timestamp.toDate() : new Date(data.timestamp);
           const diff = Math.floor((Date.now() - ts.getTime()) / 1000);
           if (diff < 60) timeStr = 'Just now';
           else if (diff < 3600) timeStr = `${Math.floor(diff/60)}m ago`;

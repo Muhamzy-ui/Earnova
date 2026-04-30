@@ -3316,7 +3316,7 @@
           totalBal += parseFloat(user.balance || 0);
           if (user.status === 'active') activeUsers++;
           if (user.createdAt && user.createdAt.toDate) {
-            const created = user.createdAt.toDate();
+            const created = (typeof user.createdAt.toDate === 'function' ? user.createdAt.toDate() : new Date(user.createdAt));
             if (created >= today) newToday++;
           }
         });
@@ -3722,7 +3722,7 @@
           <td style="color: var(--text-muted);">${u.email || ''}</td>
           <td class="amount-pos">$${parseFloat(u.balance || 0).toFixed(2)}</td>
           <td style="color: var(--text-muted);">${u.referrals || 0}</td>
-          <td style="color: var(--text-muted);">${u.createdAt ? new Date(u.createdAt.toDate()).toLocaleDateString() : 'N/A'}</td>
+          <td style="color: var(--text-muted);">${u.createdAt ? new Date((typeof u.createdAt.toDate === 'function' ? u.createdAt.toDate() : new Date(u.createdAt))).toLocaleDateString() : 'N/A'}</td>
           <td><span class="status-pill ${u.status || 'active'}">${u.status || 'active'}</span></td>
           <td>
             <div class="table-actions">
@@ -3880,7 +3880,7 @@
           <td>${w.userEmail || w.userId || ''}</td>
           <td class="amount-neg">-$${parseFloat(w.amount || 0).toFixed(2)}</td>
           <td><span class="status-pill ${w.type || 'bank'}">${w.type || 'bank'}</span></td>
-          <td style="color: var(--text-muted);">${w.timestamp ? new Date(w.timestamp.toDate()).toLocaleDateString() : 'N/A'}</td>
+          <td style="color: var(--text-muted);">${w.timestamp ? new Date((typeof w.timestamp.toDate === 'function' ? w.timestamp.toDate() : new Date(w.timestamp))).toLocaleDateString() : 'N/A'}</td>
           <td><span class="status-pill ${w.status || 'pending'}">${w.status || 'pending'}</span></td>
           <td>
             <div class="table-actions">
@@ -4015,7 +4015,7 @@
           <td>${d.userEmail || d.userId || ''}</td>
           <td class="amount-pos">+$${parseFloat(d.amount || 0).toFixed(2)}</td>
           <td><span class="status-pill ${d.method || 'bank'}">${d.method || 'bank'}</span></td>
-          <td style="color: var(--text-muted);">${d.timestamp ? new Date(d.timestamp.toDate()).toLocaleDateString() : 'N/A'}</td>
+          <td style="color: var(--text-muted);">${d.timestamp ? new Date((typeof d.timestamp.toDate === 'function' ? d.timestamp.toDate() : new Date(d.timestamp))).toLocaleDateString() : 'N/A'}</td>
           <td><span class="status-pill ${d.status || 'pending'}">${d.status || 'pending'}</span></td>
           <td>
             <div class="table-actions">
@@ -4069,7 +4069,7 @@
             <td>${t.userEmail || t.userId || ''}</td>
             <td><span class="status-pill ${t.type}">${t.type}</span></td>
             <td class="${t.type === 'withdrawal' ? 'amount-neg' : 'amount-pos'}">${t.type === 'withdrawal' ? '-' : '+'}$${parseFloat(t.amount || 0).toFixed(2)}</td>
-            <td style="color: var(--text-muted);">${t.timestamp ? new Date(t.timestamp.toDate()).toLocaleDateString() : 'N/A'}</td>
+            <td style="color: var(--text-muted);">${t.timestamp ? new Date((typeof t.timestamp.toDate === 'function' ? t.timestamp.toDate() : new Date(t.timestamp))).toLocaleDateString() : 'N/A'}</td>
             <td><span class="status-pill ${t.status || 'pending'}">${t.status || 'pending'}</span></td>
           </tr>
         `).join('');
@@ -5134,7 +5134,7 @@
         const headers = ['ID', 'Email', 'First Name', 'Last Name', 'Balance', 'Status', 'Referrals', 'Created'];
         const rows = allUsersData.map(u => [
           u.id, u.email, u.firstname, u.lastname, u.balance, u.status, u.referrals,
-          u.createdAt ? new Date(u.createdAt.toDate()).toISOString() : ''
+          u.createdAt ? new Date((typeof u.createdAt.toDate === 'function' ? u.createdAt.toDate() : new Date(u.createdAt))).toISOString() : ''
         ]);
         const csv = [headers, ...rows].map(r => r.map(v => `"${v || ''}"`).join(',')).join('\n');
         downloadFile(csv, 'users.csv', 'text/csv');
@@ -5149,7 +5149,7 @@
         const headers = ['ID', 'User', 'Amount', 'Type', 'Status', 'Date'];
         const rows = allWithdrawalsData.map(w => [
           w.id, w.userEmail || w.userId, w.amount, w.type, w.status,
-          w.timestamp ? new Date(w.timestamp.toDate()).toISOString() : ''
+          w.timestamp ? new Date((typeof w.timestamp.toDate === 'function' ? w.timestamp.toDate() : new Date(w.timestamp))).toISOString() : ''
         ]);
         const csv = [headers, ...rows].map(r => r.map(v => `"${v || ''}"`).join(',')).join('\n');
         downloadFile(csv, 'withdrawals.csv', 'text/csv');
@@ -5203,7 +5203,7 @@
             <td style="color: var(--text-muted);">${u.email || ''}</td>
             <td class="amount-pos">$${parseFloat(u.balance || 0).toFixed(2)}</td>
             <td style="color: var(--text-muted);">${u.referrals || 0}</td>
-            <td style="color: var(--text-muted);">${u.createdAt ? new Date(u.createdAt.toDate()).toLocaleDateString() : 'N/A'}</td>
+            <td style="color: var(--text-muted);">${u.createdAt ? new Date((typeof u.createdAt.toDate === 'function' ? u.createdAt.toDate() : new Date(u.createdAt))).toLocaleDateString() : 'N/A'}</td>
             <td><span class="status-pill ${u.status || 'active'}">${u.status || 'active'}</span></td>
             <td>
               <div class="table-actions">

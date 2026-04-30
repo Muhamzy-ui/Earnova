@@ -767,7 +767,7 @@
             transactionsData.push({
               id: doc.id,
               ...data,
-              timestamp: data.timestamp ? data.timestamp.toDate().getTime() : Date.now()
+              timestamp: data.timestamp ? (typeof data.timestamp.toDate === 'function' ? data.timestamp.toDate().getTime() : new Date(data.timestamp).getTime()) : Date.now()
             });
           });
 

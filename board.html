@@ -578,7 +578,7 @@
             // Format timestamp
             let timeStr = 'Just now';
             if (data.timestamp) {
-              const ts = data.timestamp.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
+              const ts = (data.timestamp && typeof data.timestamp.toDate === 'function') ? data.timestamp.toDate() : new Date(data.timestamp);
               const diff = Math.floor((Date.now() - ts.getTime()) / 60000);
               if (diff < 1) timeStr = 'Just now';
               else if (diff < 60) timeStr = `${diff}m ago`;
