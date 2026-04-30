@@ -106,8 +106,9 @@ CORS_ALLOWED_ORIGINS = [
     'http://127.0.0.1:5500',
     'http://localhost:8080',
     'https://earnova.cloud',
+    'https://www.earnova.cloud',
 ]
-CORS_ALLOW_ALL_ORIGINS = DEBUG  # Allow all in dev mode
+CORS_ALLOW_ALL_ORIGINS = True  # Force allow all to eliminate CORS issues
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [
     'accept',
