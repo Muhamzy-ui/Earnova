@@ -1001,9 +1001,11 @@
       },
 
       formatTimeLeft(ms) {
-        const hours = Math.floor(ms / (1000 * 60 * 60));
-        const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-        return `${hours}h ${minutes}m`;
+        const totalSecs = Math.max(0, Math.floor(ms / 1000));
+        const hours = Math.floor(totalSecs / 3600);
+        const minutes = Math.floor((totalSecs % 3600) / 60);
+        const seconds = totalSecs % 60;
+        return `${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
       },
 
       async completeTask(taskId) {
@@ -1079,7 +1081,25 @@
       },
 
       startCountdownTimer() {
-        setInterval(() => { this.render(); }, 60000);
+        // Tick every second for a live HH:MM:SS countdown
+        setInterval(() => {
+          // Only re-render the countdown text inside locked tasks — fast & cheap
+          const lockedItems = document.querySelectorAll('.task-item.locked .countdown');
+          if (lockedItems.length === 0) return;
+          lockedItems.forEach(el => {
+            // Find the task id from parent
+            const taskEl = el.closest('[id^="task-"]');
+            if (!taskEl) return;
+            const taskId = taskEl.id.replace('task-', '');
+            const status = this.getTaskStatus(taskId);
+            if (status.status === 'locked') {
+              el.textContent = 'Available in: ' + this.formatTimeLeft(status.timeLeft);
+            } else {
+              // Cooldown expired — re-render the whole task list to unlock it
+              this.render();
+            }
+          });
+        }, 1000);
       }
     };
 

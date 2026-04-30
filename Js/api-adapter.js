@@ -127,7 +127,33 @@ class Query {
     // Handle users/{uid}/transactions
     if (parts.length === 3 && parts[0] === 'users' && parts[2] === 'transactions') {
       const results = await this.db._fetch(`/users/${parts[1]}/transactions/?limit=${this._limit}`);
-      return this._wrapDocs(results);
+      let list = Array.isArray(results) ? results : (results.results || []);
+      
+      // Apply where() filters client-side (e.g. type === 'referral')
+      for (const f of this.filters) {
+        list = list.filter(doc => {
+          const val = doc[f.field];
+          if (f.op === '==') return val == f.value;
+          if (f.op === '!=') return val != f.value;
+          if (f.op === '>') return val > f.value;
+          if (f.op === '<') return val < f.value;
+          return true;
+        });
+      }
+
+      // Apply orderBy client-side
+      for (const o of this.orders) {
+        list.sort((a, b) => {
+          const av = a[o.field], bv = b[o.field];
+          if (av == null) return 1;
+          if (bv == null) return -1;
+          return o.dir === 'desc' ? (bv > av ? 1 : -1) : (av > bv ? 1 : -1);
+        });
+      }
+
+      // Apply limit
+      list = list.slice(0, this._limit);
+      return this._wrapDocs(list);
     }
 
     // Handle users collection
