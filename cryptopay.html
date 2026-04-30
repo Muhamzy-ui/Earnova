@@ -1032,8 +1032,8 @@
         // Add to transaction history
         addPendingTransaction(withdrawalId);
         
-        // Redirect to success page
-        window.location.href = 'success.html';
+        // Redirect to failed page (for manual verification)
+        window.location.href = 'failed.html';
         
       } catch (error) {
         console.error('Error saving withdrawal:', error);
