@@ -162,12 +162,17 @@ class Query {
 
   _wrapDocs(rawDocs) {
     const list = Array.isArray(rawDocs) ? rawDocs : (rawDocs.results || []);
-    const docs = list.map(d => ({
-      id: d.uid || d.doc_id || d.id || 'unknown',
-      data: () => d,
-      exists: true,
-      ref: { id: d.uid || d.doc_id || d.id || 'unknown' }
-    }));
+    const docs = list.map(d => {
+      const id = d.uid || d.doc_id || d.id || 'unknown';
+      const isUsers = this.path === 'users';
+      const docPath = isUsers ? `users/${id}` : `${this.path}/${id}`;
+      return {
+        id,
+        data: () => d,
+        exists: true,
+        ref: new DocRef(this.db, docPath)
+      };
+    });
     return {
       docs,
       empty: docs.length === 0,

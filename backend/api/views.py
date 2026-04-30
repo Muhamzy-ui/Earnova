@@ -202,15 +202,25 @@ def user_profile_detail(request, uid):
 
 def apply_nested_updates(user_profile, increments, deletes, nested_updates):
     """Helper to apply increments and dot-notation nested updates to a UserProfile."""
+    FIELD_MAPPING = {
+        'refCount': 'ref_count',
+        'refEarnings': 'ref_earnings',
+        'totalEarned': 'total_earned',
+        'tasksCompleted': 'tasks_completed',
+        'taskCooldowns': 'task_cooldowns',
+        'balance': 'balance' # just in case
+    }
+
     # Handle increments
     for field, val in increments.items():
-        if '.' in field:
+        mapped_field = FIELD_MAPPING.get(field, field)
+        if '.' in mapped_field:
             # We don't support increments on nested fields yet, but we could
             pass
-        elif hasattr(user_profile, field):
-            current_val = getattr(user_profile, field)
+        elif hasattr(user_profile, mapped_field):
+            current_val = getattr(user_profile, mapped_field)
             try:
-                setattr(user_profile, field, current_val + type(current_val)(val))
+                setattr(user_profile, mapped_field, current_val + type(current_val)(val))
             except: pass
 
     # Handle nested updates (e.g. taskCooldowns.fb1 = 123)
