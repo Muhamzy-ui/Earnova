@@ -193,6 +193,10 @@ class DocRef {
     this.path = path;
   }
 
+  collection(subPath) {
+    return new CollectionRef(this.db, `${this.path}/${subPath}`);
+  }
+
   async get() {
     const parts = this.path.split('/');
 
