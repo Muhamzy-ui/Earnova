@@ -40,7 +40,6 @@ class FirestoreShim {
     const user = firebase.auth().currentUser;
     const headers = { 'Content-Type': 'application/json' };
     
-    // Wait for user if token is needed
     if (user) {
       const token = await user.getIdToken();
       headers['Authorization'] = `Bearer ${token}`;
@@ -56,11 +55,31 @@ class FirestoreShim {
         console.error(`API Error [${response.status}] for ${endpoint}:`, result);
         throw new Error(result.error || `API Error: ${response.status}`);
       }
-      return result;
+      return this._fixTimestamps(result);
     } catch (err) {
       console.error(`Fetch error for ${endpoint}:`, err);
       throw err;
     }
+  }
+
+  _fixTimestamps(obj) {
+    if (!obj || typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) return obj.map(item => this._fixTimestamps(item));
+    
+    // Check if it looks like a Firebase timestamp object sent as JSON from Django
+    if (obj.toDate && typeof obj.toDate === 'string' && (obj._seconds || obj.seconds)) {
+      const dateStr = obj.toDate;
+      obj.toDate = function() { return new Date(dateStr); };
+      if (!obj.seconds) obj.seconds = obj._seconds;
+    }
+    
+    // Recurse into properties
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key) && key !== 'toDate') {
+        obj[key] = this._fixTimestamps(obj[key]);
+      }
+    }
+    return obj;
   }
 
   collection(path) {
