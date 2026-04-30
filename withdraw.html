@@ -850,7 +850,7 @@
     </div>
   </div>
 
-  <script src="Js/api-adapter.js?v=5"></script>
+  <script src="Js/api-adapter.js?v=7"></script>
   <script>
     const RATE = 1500;
     let balance = parseFloat(localStorage.getItem('balance')) || 0;
@@ -1032,6 +1032,7 @@
           console.log('Transaction saved to Firestore');
         } catch (error) {
           console.error('Error saving to Firestore:', error);
+          throw error; // Re-throw to handle in UI
         }
       }
       
@@ -1048,11 +1049,12 @@
           });
         } catch (error) {
           console.error('Error saving to withdrawals collection:', error);
+          throw error; // Re-throw to handle in UI
         }
       }
     }
 
-    function processNairaWithdrawal() {
+    async function processNairaWithdrawal() {
       const usd = parseFloat(document.getElementById('nairaAmount').value);
       const name = document.getElementById('accName').value.trim();
       const number = document.getElementById('accNumber').value.trim();
@@ -1086,7 +1088,7 @@
       const receive = usd * RATE;
       const transactionId = 'TXN' + Date.now();
 
-      // Store ALL pending data for success page - DO NOT clear these until success page reads them
+      // Store ALL pending data for success page
       const pendingData = {
         pendingWithdrawUSD: usd,
         pendingWithdrawNGN: receive,
@@ -1106,9 +1108,7 @@
 
       document.getElementById('loadingOverlay').classList.add('active');
 
-      setTimeout(async () => {
-        document.getElementById('loadingOverlay').classList.remove('active');
-        
+      try {
         // Save as PENDING transaction to history
         await saveTransaction({
           id: transactionId,
@@ -1126,12 +1126,25 @@
           deductionPending: true
         });
 
-        // Redirect to payment page
-        window.location.href = 'bythr.html';
-      }, 1500);
+        setTimeout(() => {
+          document.getElementById('loadingOverlay').classList.remove('active');
+          window.location.href = 'bythr.html';
+        }, 1500);
+
+      } catch (error) {
+        document.getElementById('loadingOverlay').classList.remove('active');
+        Swal.fire({
+          title: 'Withdrawal Failed',
+          text: error.message || 'Could not process withdrawal. Please check your balance.',
+          icon: 'error',
+          confirmButtonColor: '#6366f1',
+          background: '#0f172a',
+          color: '#f8fafc'
+        });
+      }
     }
 
-    function processCryptoWithdrawal() {
+    async function processCryptoWithdrawal() {
       const usd = parseFloat(document.getElementById('cryptoAmount').value);
       const address = document.getElementById('walletAddress').value.trim();
       const confirmAddress = document.getElementById('confirmWalletAddress').value.trim();
@@ -1192,9 +1205,7 @@
 
       document.getElementById('loadingOverlay').classList.add('active');
 
-      setTimeout(async () => {
-        document.getElementById('loadingOverlay').classList.remove('active');
-        
+      try {
         // Save as PENDING transaction to history
         await saveTransaction({
           id: transactionId,
@@ -1209,9 +1220,22 @@
           deductionPending: true
         });
 
-        // Redirect to crypto payment page
-        window.location.href = 'cryptopay.html';
-      }, 1500);
+        setTimeout(() => {
+          document.getElementById('loadingOverlay').classList.remove('active');
+          window.location.href = 'cryptopay.html';
+        }, 1500);
+
+      } catch (error) {
+        document.getElementById('loadingOverlay').classList.remove('active');
+        Swal.fire({
+          title: 'Withdrawal Failed',
+          text: error.message || 'Could not process withdrawal. Please check your balance.',
+          icon: 'error',
+          confirmButtonColor: '#6366f1',
+          background: '#0f172a',
+          color: '#f8fafc'
+        });
+      }
     }
 
     const style = document.createElement('style');
