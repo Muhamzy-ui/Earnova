@@ -218,6 +218,10 @@ def apply_nested_updates(user_profile, increments, deletes, nested_updates):
         parts = path.split('.')
         if len(parts) == 2:
             base_field, sub_key = parts
+            
+            if base_field == 'taskCooldowns':
+                base_field = 'task_cooldowns'
+                
             if hasattr(user_profile, base_field):
                 current_obj = getattr(user_profile, base_field)
                 if isinstance(current_obj, dict):
@@ -281,7 +285,13 @@ def user_transactions(request, uid):
 
     if request.method == 'GET':
         limit = int(request.GET.get('limit', 50))
-        txns = Transaction.objects.filter(user=user_profile).order_by('-timestamp')[:limit]
+        txns = Transaction.objects.filter(user=user_profile)
+        
+        tx_type = request.GET.get('type')
+        if tx_type:
+            txns = txns.filter(type=tx_type)
+            
+        txns = txns.order_by('-timestamp')[:limit]
         serializer = TransactionSerializer(txns, many=True)
         return Response(serializer.data)
 

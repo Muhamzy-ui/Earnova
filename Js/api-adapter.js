@@ -126,7 +126,12 @@ class Query {
 
     // Handle users/{uid}/transactions
     if (parts.length === 3 && parts[0] === 'users' && parts[2] === 'transactions') {
-      const results = await this.db._fetch(`/users/${parts[1]}/transactions/?limit=${this._limit}`);
+      let queryUrl = `/users/${parts[1]}/transactions/?limit=${this._limit}`;
+      const typeFilter = this.filters.find(f => f.field === 'type' && f.op === '==');
+      if (typeFilter) {
+        queryUrl += `&type=${typeFilter.value}`;
+      }
+      const results = await this.db._fetch(queryUrl);
       return this._wrapDocs(results);
     }
 
