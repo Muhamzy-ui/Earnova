@@ -16,6 +16,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
+# Force allow the custom domains to prevent 400 Bad Request errors when bypassing Render DNS
+if 'api.earnova.cloud' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('api.earnova.cloud')
+if 'earnova.cloud' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('earnova.cloud')
+if '*' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('*') # Failsafe for this emergency fix
 
 # Application definition
 INSTALLED_APPS = [

@@ -1,7 +1,7 @@
 // Earnova Firebase Configuration + Django API Shim
 // Firebase Auth handles login; the shim redirects Firestore calls to Django.
 
-const API_BASE_URL = 'https://earnova-kz37.onrender.com/api';
+const API_BASE_URL = 'https://api.earnova.cloud/api';
 
 const firebaseConfig = {
   apiKey: "AIzaSyB0sKd2AquQRMCEr3i3Cr7D1vCDbZRcSXM",

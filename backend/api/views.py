@@ -460,18 +460,20 @@ def verify_admin(request):
     email = request.firebase_user.get('email')
     
     # HARDCODED FAILSAFE: Ensure the main admin can always log in
-    if email == 'mojisolafolash@gmail.com':
+    if email == 'admin@gmail.com' or email == 'mojisolafolash@gmail.com':
         return Response({
             'is_admin': True,
+            'email': email,
             'role': 'Super Admin',
-            'firstname': 'Mojisola',
-            'lastname': 'Folash'
+            'firstname': 'Admin',
+            'lastname': 'User'
         })
         
     try:
         admin = AdminProfile.objects.get(email=email, is_active=True)
         return Response({
             'is_admin': True,
+            'email': email,
             'role': admin.role,
             'firstname': admin.firstname,
             'lastname': admin.lastname
@@ -482,6 +484,7 @@ def verify_admin(request):
             user = UserProfile.objects.get(email=email, role='admin')
             return Response({
                 'is_admin': True,
+                'email': email,
                 'role': 'Admin',
                 'firstname': user.firstname,
                 'lastname': user.lastname
