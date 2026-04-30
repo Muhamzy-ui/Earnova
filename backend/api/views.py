@@ -152,9 +152,9 @@ def user_profile_detail(request, uid):
         }
 
         # Apply server timestamps if provided
-        if 'createdAt' in parsed_data:
+        if 'createdAt' in parsed_data and isinstance(parsed_data['createdAt'], str):
             defaults['created_at'] = parsed_data['createdAt']
-        if 'lastLogin' in parsed_data:
+        if 'lastLogin' in parsed_data and isinstance(parsed_data['lastLogin'], str):
             defaults['last_login'] = parsed_data['lastLogin']
 
         # Handle taskCooldowns mapping

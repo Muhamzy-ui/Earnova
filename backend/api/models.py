@@ -143,10 +143,7 @@ class Transaction(models.Model):
             'status': self.status,
             'date': self.date,
             'description': self.description,
-            'timestamp': {
-                'toDate': self.timestamp.isoformat(),
-                '_seconds': int(self.timestamp.timestamp()),
-            },
+            'timestamp': self.timestamp.isoformat(),
         }
         if self.referred_user_id:
             data['referredUserId'] = self.referred_user_id
