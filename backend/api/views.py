@@ -119,7 +119,10 @@ def user_profile_detail(request, uid):
                 user_profile = apply_nested_updates(user_profile, increments, deletes, nested_updates)
                 
             return Response(serializer.data, status=status.HTTP_201_CREATED if not user_profile else status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # Return the exact validation error as a string so the frontend displays it
+        error_msg = " | ".join([f"{k}: {v[0] if isinstance(v, list) else v}" for k, v in serializer.errors.items()])
+        print("Validation errors:", serializer.errors)
+        return Response({'error': error_msg, 'details': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
     elif request.method == 'PATCH':
         # "update" document
