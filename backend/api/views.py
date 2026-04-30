@@ -634,17 +634,23 @@ def platform_settings_detail(request, doc_id):
     POST /settings/{doc_id}/ - Create or overwrite a settings document (admin set)
     PATCH /settings/{doc_id}/ - Merge-update a settings document
     """
-    settings_obj, _ = PlatformSettings.objects.get_or_create(
-        doc_id=doc_id,
-        defaults={'data': {}}
-    )
+    try:
+        settings_obj, _ = PlatformSettings.objects.get_or_create(
+            doc_id=doc_id,
+            defaults={'data': {}}
+        )
+    except Exception as e:
+        # Table may not exist yet (migration pending) — return empty doc gracefully
+        print(f"Settings DB error for {doc_id}: {e}")
+        if request.method == 'GET':
+            return Response({'exists': False, 'data': {}, 'doc_id': doc_id})
+        return Response({'error': 'Settings table not ready. Run migrations.'}, status=503)
 
     if request.method == 'GET':
         return Response({'exists': True, 'data': settings_obj.data, 'doc_id': doc_id})
 
     elif request.method == 'POST':
         # Full overwrite (set)
-        # Strip out any Firebase FieldValue sentinels before saving
         clean_data = {k: v for k, v in request.data.items()
                       if not (isinstance(v, dict) and v.get('_isFieldValue'))}
         settings_obj.data = clean_data
@@ -656,11 +662,12 @@ def platform_settings_detail(request, doc_id):
         merged = dict(settings_obj.data)
         for k, v in request.data.items():
             if isinstance(v, dict) and v.get('_isFieldValue'):
-                continue  # skip FieldValue sentinels
+                continue
             merged[k] = v
         settings_obj.data = merged
         settings_obj.save()
         return Response({'exists': True, 'data': settings_obj.data, 'doc_id': doc_id})
+
 
 
 # ==========================================

@@ -300,6 +300,24 @@ class DocRef {
     throw new Error(`Update not supported for path: ${this.path}`);
   }
 
+  async delete() {
+    const parts = this.path.split('/');
+    // users/{uid} — ban/delete user (mark as banned in backend)
+    if (parts.length === 2 && parts[0] === 'users') {
+      await this.db._fetch(`/users/${parts[1]}/`, 'PATCH', { status: 'banned' });
+      this.db._triggerRefresh();
+      return;
+    }
+    // withdrawals/{docId}
+    if (parts.length === 2 && parts[0] === 'withdrawals') {
+      await this.db._fetch(`/admin/withdrawals/${parts[1]}/`, 'PATCH', { action: 'reject' });
+      this.db._triggerRefresh();
+      return;
+    }
+    // For anything else, silently succeed (no-op) to avoid crashes
+    console.warn(`Delete silently ignored for path: ${this.path}`);
+  }
+
   onSnapshot(callback, errorCallback) {
     let cancelled = false;
     const poll = async () => {
