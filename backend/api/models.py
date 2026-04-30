@@ -218,3 +218,19 @@ class AdminProfile(models.Model):
 
     def __str__(self):
         return f"Admin: {self.email}"
+
+
+class PlatformSettings(models.Model):
+    """
+    Maps to Firestore: settings/{doc_id}
+    Stores admin-configurable platform settings (bank, crypto, general, etc.)
+    """
+    doc_id = models.CharField(max_length=50, unique=True, primary_key=True)
+    data = models.JSONField(default=dict, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'platform_settings'
+
+    def __str__(self):
+        return f"Settings: {self.doc_id}"

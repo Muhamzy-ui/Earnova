@@ -226,22 +226,57 @@ class DocRef {
       } catch (e) { return { exists: false, data: () => null }; }
     }
     
-    // Handle users/{uid}/transactions/{id} (unlikely to be used but good for completeness)
+    // Handle users/{uid}/transactions/{id}
     if (parts.length === 4 && parts[0] === 'users' && parts[2] === 'transactions') {
-       // Just returning empty/exists:false for now as usually list is used
-       return { exists: false, data: () => null };
+      try {
+        const data = await this.db._fetch(`/users/${parts[1]}/transactions/${parts[3]}/`);
+        return { exists: true, data: () => data };
+      } catch (e) { return { exists: false, data: () => null }; }
+    }
+
+    // Handle settings/{docId}
+    if (parts.length === 2 && parts[0] === 'settings') {
+      try {
+        const r = await this.db._fetch(`/settings/${parts[1]}/`);
+        if (r && r.exists) return { exists: true, data: () => r.data };
+        return { exists: false, data: () => ({}) };
+      } catch (e) { return { exists: false, data: () => ({}) }; }
     }
 
     return { exists: false, data: () => null };
   }
 
-  async set(data) {
+  async set(data, options = {}) {
     const parts = this.path.split('/');
+    const method = (options.merge) ? 'PATCH' : 'POST';
+
+    // Handle users/{uid}
     if (parts.length === 2 && parts[0] === 'users') {
       await this.db._fetch(`/users/${parts[1]}/`, 'POST', data);
       this.db._triggerRefresh();
       return;
     }
+
+    // Handle settings/{docId}
+    if (parts.length === 2 && parts[0] === 'settings') {
+      await this.db._fetch(`/settings/${parts[1]}/`, method, data);
+      return;
+    }
+
+    // Handle withdrawals/{docId}
+    if (parts.length === 2 && parts[0] === 'withdrawals') {
+      await this.db._fetch(`/withdrawals/${parts[1]}/`, 'POST', data);
+      this.db._triggerRefresh();
+      return;
+    }
+
+    // Handle users/{uid}/transactions/{txnId}
+    if (parts.length === 4 && parts[0] === 'users' && parts[2] === 'transactions') {
+      await this.db._fetch(`/users/${parts[1]}/transactions/${parts[3]}/`, 'PATCH', data);
+      this.db._triggerRefresh();
+      return;
+    }
+
     throw new Error(`Set not supported for path: ${this.path}`);
   }
 
@@ -250,6 +285,10 @@ class DocRef {
     if (parts.length === 2 && parts[0] === 'users') {
       await this.db._fetch(`/users/${parts[1]}/`, 'PATCH', data);
       this.db._triggerRefresh();
+      return;
+    }
+    if (parts.length === 2 && parts[0] === 'settings') {
+      await this.db._fetch(`/settings/${parts[1]}/`, 'PATCH', data);
       return;
     }
     if (parts[0] === 'withdrawals') {

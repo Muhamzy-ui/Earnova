@@ -13,7 +13,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 
-from .models import UserProfile, Transaction, Withdrawal, AdminProfile
+from .models import UserProfile, Transaction, Withdrawal, AdminProfile, PlatformSettings
 from .serializers import UserProfileSerializer, TransactionSerializer, WithdrawalSerializer
 from .firebase_auth import firebase_auth_required, firebase_admin_required
 
@@ -621,3 +621,150 @@ def verify_admin(request):
             })
         except UserProfile.DoesNotExist:
             return Response({'is_admin': False})
+
+
+# ==========================================
+# PLATFORM SETTINGS (Mirror settings collection)
+# ==========================================
+
+@api_view(['GET', 'POST', 'PATCH'])
+def platform_settings_detail(request, doc_id):
+    """
+    GET  /settings/{doc_id}/ - Read a settings document
+    POST /settings/{doc_id}/ - Create or overwrite a settings document (admin set)
+    PATCH /settings/{doc_id}/ - Merge-update a settings document
+    """
+    settings_obj, _ = PlatformSettings.objects.get_or_create(
+        doc_id=doc_id,
+        defaults={'data': {}}
+    )
+
+    if request.method == 'GET':
+        return Response({'exists': True, 'data': settings_obj.data, 'doc_id': doc_id})
+
+    elif request.method == 'POST':
+        # Full overwrite (set)
+        # Strip out any Firebase FieldValue sentinels before saving
+        clean_data = {k: v for k, v in request.data.items()
+                      if not (isinstance(v, dict) and v.get('_isFieldValue'))}
+        settings_obj.data = clean_data
+        settings_obj.save()
+        return Response({'exists': True, 'data': settings_obj.data, 'doc_id': doc_id})
+
+    elif request.method == 'PATCH':
+        # Merge update
+        merged = dict(settings_obj.data)
+        for k, v in request.data.items():
+            if isinstance(v, dict) and v.get('_isFieldValue'):
+                continue  # skip FieldValue sentinels
+            merged[k] = v
+        settings_obj.data = merged
+        settings_obj.save()
+        return Response({'exists': True, 'data': settings_obj.data, 'doc_id': doc_id})
+
+
+# ==========================================
+# WITHDRAWAL SET-BY-ID (for bythr.html and cryptopay.html)
+# ==========================================
+
+@api_view(['POST', 'PATCH'])
+@firebase_auth_required
+def withdrawal_by_id(request, doc_id):
+    """
+    POST/PATCH /withdrawals/{doc_id}/ - Create or merge-update a specific withdrawal record.
+    Used by bythr.html and cryptopay.html after payment is made.
+    """
+    uid = request.firebase_user.get('uid')
+    try:
+        user = UserProfile.objects.get(uid=uid)
+    except UserProfile.DoesNotExist:
+        return Response({'error': 'User not found'}, status=404)
+
+    data = {k: v for k, v in request.data.items()
+            if not (isinstance(v, dict) and v.get('_isFieldValue'))}
+
+    withdrawal, created = Withdrawal.objects.get_or_create(
+        doc_id=doc_id,
+        defaults={
+            'user': user,
+            'username': data.get('username', user.username),
+            'user_email': data.get('userEmail', user.email),
+            'amount': data.get('amount', 0),
+            'type': data.get('type', ''),
+            'status': data.get('status', 'pending'),
+            'bank': data.get('bank') or (data.get('userBankDetails') or {}).get('bank'),
+            'account_number': data.get('accountNumber') or (data.get('userBankDetails') or {}).get('account'),
+            'account_name': data.get('accountName') or (data.get('userBankDetails') or {}).get('name'),
+            'ngn_amount': data.get('amountNGN') or data.get('ngnAmount'),
+            'charge': data.get('transferCharge') or data.get('charge'),
+            'wallet_address': data.get('walletAddress'),
+            'network_fee': data.get('networkFee'),
+        }
+    )
+
+    if not created:
+        # Merge update
+        if data.get('status'): withdrawal.status = data['status']
+        if data.get('amount'): withdrawal.amount = data['amount']
+        withdrawal.save()
+
+    from .serializers import WithdrawalSerializer
+    return Response(WithdrawalSerializer(withdrawal).data,
+                    status=201 if created else 200)
+
+
+# ==========================================
+# TRANSACTION BY ID (for bythr.html merge-update)
+# ==========================================
+
+@api_view(['GET', 'PATCH'])
+@firebase_auth_required
+def transaction_by_id(request, uid, doc_id):
+    """
+    PATCH /users/{uid}/transactions/{doc_id}/ - Merge-update a specific transaction
+    (e.g. mark receiptUploaded=True after payment proof is submitted)
+    """
+    request_uid = request.firebase_user.get('uid')
+    if request_uid != uid and not getattr(request, 'is_admin', False):
+        return Response({'error': 'Unauthorized'}, status=403)
+
+    try:
+        user = UserProfile.objects.get(uid=uid)
+    except UserProfile.DoesNotExist:
+        return Response({'error': 'User not found'}, status=404)
+
+    if request.method == 'GET':
+        try:
+            txn = Transaction.objects.get(user=user, doc_id=doc_id)
+            from .serializers import TransactionSerializer
+            return Response(TransactionSerializer(txn).data)
+        except Transaction.DoesNotExist:
+            return Response({'exists': False}, status=404)
+
+    elif request.method == 'PATCH':
+        data = {k: v for k, v in request.data.items()
+                if not (isinstance(v, dict) and v.get('_isFieldValue'))}
+
+        txn, created = Transaction.objects.get_or_create(
+            user=user,
+            doc_id=doc_id,
+            defaults={
+                'type': data.get('type', 'withdrawal'),
+                'title': data.get('title', 'Withdrawal'),
+                'amount': data.get('amount', 0),
+                'status': data.get('status', 'pending'),
+                'date': data.get('date', ''),
+                'description': data.get('description', ''),
+            }
+        )
+
+        if not created:
+            # Merge update: only update fields that are provided
+            allowed = ['status', 'description', 'receipt_uploaded', 'receipt_file']
+            if data.get('receiptUploaded') is not None:
+                txn.description = (txn.description or '') + ' • Receipt uploaded'
+            if data.get('status'): txn.status = data['status']
+            txn.save()
+
+        from .serializers import TransactionSerializer
+        return Response(TransactionSerializer(txn).data, status=201 if created else 200)
