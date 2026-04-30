@@ -95,6 +95,32 @@ def user_profile_detail(request, uid):
                 status='active',
                 role='user',
             )
+        else:
+            # AUTO-HEAL broken profiles created during bug phase!
+            needs_save = False
+            if not user_profile.email:
+                user_profile.email = request.firebase_user.get('email', '')
+                needs_save = True
+            if not user_profile.username or user_profile.username == 'USER':
+                if user_profile.email:
+                    user_profile.username = user_profile.email.split('@')[0]
+                else:
+                    user_profile.username = uid[:8]
+                needs_save = True
+            if not user_profile.referral_code:
+                import random, string
+                user_profile.referral_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+                needs_save = True
+            # Only give 10.00 bonus if they are literally at 0/0 and never got it
+            if getattr(user_profile, 'balance', 0) == 0 and getattr(user_profile, 'total_earned', 0) == 0:
+                user_profile.balance = 10.00
+                user_profile.total_earned = 10.00
+                user_profile.welcome_bonus_given = True
+                needs_save = True
+                
+            if needs_save:
+                user_profile.save()
+
         serializer = UserProfileSerializer(user_profile)
         return Response(serializer.data)
 
