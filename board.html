@@ -601,7 +601,7 @@
             const data = userDoc.data();
             if ((data.refCount || 0) > 0) {
               activityContainer.style.display = 'block';
-              activityList.innerHTML = '<div class="referral-activity-empty">Referral data syncing...</div>';
+              activityList.innerHTML = '<div class="referral-activity-empty">No recent activity found</div>';
             } else {
               activityContainer.style.display = 'none';
             }

@@ -1093,17 +1093,23 @@
         const item = document.createElement('div');
         item.className = `history-item ${isNew ? 'new' : ''}`;
         item.style.animationDelay = `${index * 0.05}s`;
+        
+        const displayTitle = data.title || (data.description ? data.description.replace('Referred user: ', '') : 'Referral Bonus');
+        const displayAmount = data.amount ? (data.amount > 0 ? '+$' + data.amount.toFixed(2) : '-$' + Math.abs(data.amount).toFixed(2)) : '+$4.00';
+        const statusColor = data.status === 'completed' ? 'var(--success)' : 'var(--warning)';
+        const statusText = data.status === 'completed' ? 'Signup completed' : (data.status || 'Pending');
+
         item.innerHTML = `
           <div class="history-avatar">${avatar}</div>
           <div class="history-info">
-            <div class="history-name">${name}</div>
+            <div class="history-name">${displayTitle}</div>
             <div class="history-meta">
               <span class="time"><i class="far fa-clock" style="font-size:10px;"></i> ${timeStr}</span>
               <span>•</span>
-              <span style="color:var(--success);">Signup completed</span>
+              <span style="color:${statusColor};">${statusText}</span>
             </div>
           </div>
-          <div class="history-amount">+$4.00</div>
+          <div class="history-amount">${displayAmount}</div>
         `;
         list.appendChild(item);
       });
