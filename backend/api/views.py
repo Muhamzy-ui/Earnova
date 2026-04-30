@@ -529,7 +529,9 @@ def admin_withdrawals(request):
     if status_filter:
         qs = qs.filter(status=status_filter)
         
-    withdrawals = qs[:100]
+    limit = int(request.GET.get('limit', 100))
+    if limit > 1000: limit = 1000
+    withdrawals = qs[:limit]
     serializer = WithdrawalSerializer(withdrawals, many=True)
     return Response(serializer.data)
 

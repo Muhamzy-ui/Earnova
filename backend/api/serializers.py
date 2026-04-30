@@ -53,7 +53,7 @@ class WithdrawalSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         """Convert to format suitable for admin panel and ticker."""
         return {
-            'id': self.instance.doc_id if hasattr(self, 'instance') and self.instance else instance.doc_id, # doc_id is the primary identifier for frontend
+            'id': instance.doc_id, # doc_id is the primary identifier for frontend
             'userId': instance.user.uid if instance.user else None,
             'userEmail': instance.user_email,
             'amount': float(instance.amount),
