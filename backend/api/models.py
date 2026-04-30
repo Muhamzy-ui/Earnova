@@ -199,6 +199,28 @@ class Withdrawal(models.Model):
     def __str__(self):
         return f"Withdrawal: {self.username} - ${self.amount}"
 
+    def to_firestore_format(self):
+        """Returns data in format suitable for frontend/ticker."""
+        return {
+            'id': self.doc_id,
+            'userId': self.user.uid if self.user else None,
+            'userEmail': self.user_email,
+            'amount': float(self.amount),
+            'type': self.type,
+            'bank': self.bank,
+            'accountNumber': self.account_number,
+            'accountName': self.account_name,
+            'ngnAmount': float(self.ngn_amount) if self.ngn_amount else None,
+            'charge': float(self.charge) if self.charge else None,
+            'walletAddress': self.wallet_address,
+            'networkFee': float(self.network_fee) if self.network_fee else None,
+            'status': self.status,
+            'timestamp': {
+                'toDate': self.timestamp.isoformat(),
+                '_seconds': int(self.timestamp.timestamp()),
+            },
+        }
+
 
 class AdminProfile(models.Model):
     """

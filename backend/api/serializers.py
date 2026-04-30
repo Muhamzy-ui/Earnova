@@ -52,25 +52,7 @@ class WithdrawalSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         """Convert to format suitable for admin panel and ticker."""
-        return {
-            'id': instance.doc_id, # doc_id is the primary identifier for frontend
-            'userId': instance.user.uid if instance.user else None,
-            'userEmail': instance.user_email,
-            'amount': float(instance.amount),
-            'type': instance.type,
-            'bank': instance.bank,
-            'accountNumber': instance.account_number,
-            'accountName': instance.account_name,
-            'ngnAmount': float(instance.ngn_amount) if instance.ngn_amount else None,
-            'charge': float(instance.charge) if instance.charge else None,
-            'walletAddress': instance.wallet_address,
-            'networkFee': float(instance.network_fee) if instance.network_fee else None,
-            'status': instance.status,
-            'timestamp': {
-                'toDate': instance.timestamp.isoformat(),
-                '_seconds': int(instance.timestamp.timestamp()),
-            },
-        }
+        return instance.to_firestore_format()
 
 
 class AdminProfileSerializer(serializers.ModelSerializer):
