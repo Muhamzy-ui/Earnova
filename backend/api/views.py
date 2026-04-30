@@ -292,13 +292,31 @@ def user_transactions(request, uid):
             import uuid
             doc_id = f"TXN{uuid.uuid4().hex[:12].upper()}"
             
-        data['doc_id'] = doc_id
-        
-        serializer = TransactionSerializer(data=data)
-        if serializer.is_valid():
-            serializer.save(user=user_profile)
+        try:
+            # Manually extract to avoid DRF validation choking on Firebase FieldValues
+            txn = Transaction.objects.create(
+                doc_id=doc_id,
+                user=user_profile,
+                type=data.get('type', 'bonus'),
+                title=data.get('title', ''),
+                amount=data.get('amount', 0.00),
+                status=data.get('status', 'completed'),
+                date=data.get('date', ''),
+                description=data.get('description', ''),
+                referred_user_id=data.get('referred_user_id') or data.get('referredUserId'),
+                bank=data.get('bank'),
+                account_number=data.get('account_number') or data.get('accountNumber'),
+                account_name=data.get('account_name') or data.get('accountName'),
+                wallet_address=data.get('wallet_address') or data.get('walletAddress'),
+                network_fee=data.get('network_fee') or data.get('networkFee'),
+                ngn_amount=data.get('ngn_amount') or data.get('ngnAmount'),
+                charge=data.get('charge'),
+            )
+            serializer = TransactionSerializer(txn)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            print("Transaction create error:", str(e))
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 # ==========================================
