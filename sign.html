@@ -1877,15 +1877,8 @@
           role: 'user'
         };
 
-        // Save to Firestore
+        // Save to Firestore (Backend securely handles referral processing automatically)
         await db.collection('users').doc(user.uid).set(userData);
-
-        // Process referral bonus if applicable
-        if (referredBy) {
-          loadingText.textContent = 'Processing referral bonus...';
-          await processReferralBonus(referredBy, user.uid, username);
-          localStorage.removeItem('referredBy'); // Clean up
-        }
 
         // Add welcome bonus transaction
         await db.collection('users').doc(user.uid)

@@ -449,10 +449,6 @@
 
       await userDocRef.set(userData);
 
-      if (referredBy) {
-        await processReferralBonus(referredBy, user.uid, username);
-      }
-
       await addTransaction({
         type: 'bonus',
         title: 'Welcome Bonus',

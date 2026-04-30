@@ -3,6 +3,7 @@ API Views for Earnova Backend.
 These endpoints act as a drop-in replacement for Firestore operations.
 """
 import json
+from decimal import Decimal
 from django.utils import timezone
 from django.db import transaction as db_transaction
 from django.db.models import Sum, Count, Q
@@ -172,6 +173,31 @@ def user_profile_detail(request, uid):
             if increments or nested_updates or deletes:
                 user_profile = apply_nested_updates(user_profile, increments, deletes, nested_updates)
                 
+            # Securely process referral bonus on the backend if this is a new user
+            if created and user_profile.referred_by:
+                try:
+                    referrer = UserProfile.objects.get(referral_code=user_profile.referred_by)
+                    # Don't allow self-referral
+                    if referrer.uid != user_profile.uid:
+                        referrer.ref_count = getattr(referrer, 'ref_count', 0) + 1
+                        referrer.ref_earnings = getattr(referrer, 'ref_earnings', 0) + Decimal('4.00')
+                        referrer.balance = getattr(referrer, 'balance', 0) + Decimal('4.00')
+                        referrer.total_earned = getattr(referrer, 'total_earned', 0) + Decimal('4.00')
+                        referrer.save()
+                        
+                        # Add transaction to referrer's history
+                        Transaction.objects.create(
+                            user=referrer,
+                            type='referral',
+                            title='Referral Bonus',
+                            amount=Decimal('4.00'),
+                            status='completed',
+                            description=f'Referred user: {user_profile.username}',
+                            timestamp=timezone.now()
+                        )
+                except Exception as e:
+                    print("Referral processing error:", str(e))
+                
             serializer = UserProfileSerializer(user_profile)
             return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
             
@@ -185,6 +211,14 @@ def user_profile_detail(request, uid):
             return Response({'error': 'Document does not exist to update'}, status=404)
 
         parsed_data, increments, deletes, nested_updates = parse_firestore_update(request.data)
+        
+        # Translate JS camelCase fields to Django snake_case manually
+        if 'refCount' in parsed_data: parsed_data['ref_count'] = parsed_data.pop('refCount')
+        if 'refEarnings' in parsed_data: parsed_data['ref_earnings'] = parsed_data.pop('refEarnings')
+        if 'totalEarned' in parsed_data: parsed_data['total_earned'] = parsed_data.pop('totalEarned')
+        if 'tasksCompleted' in parsed_data: parsed_data['tasks_completed'] = parsed_data.pop('tasksCompleted')
+        if 'referralCode' in parsed_data: parsed_data['referral_code'] = parsed_data.pop('referralCode')
+        if 'referredBy' in parsed_data: parsed_data['referred_by'] = parsed_data.pop('referredBy')
 
         # Handle direct field updates
         if parsed_data:
