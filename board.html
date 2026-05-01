@@ -621,14 +621,16 @@
         .orderBy('timestamp', 'desc')
         .limit(5)
         .onSnapshot((snapshot) => {
-          // Whenever a new referral transaction is added, refresh the feed and user data
+          // Always refresh the referral activity feed on any change (including first load)
+          loadReferralActivity();
           if (!snapshot.empty) {
-            loadReferralActivity();
             // Also force refresh user data to get updated refCount/refEarnings
             forceRefreshUserData().then(() => updateUI());
           }
         }, (error) => {
           console.error('Transaction listener error:', error);
+          // Even on error, still try to load referral activity from server
+          loadReferralActivity();
         });
     }
 

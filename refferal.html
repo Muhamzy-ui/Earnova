@@ -975,6 +975,9 @@
         .onSnapshot((snapshot) => {
           renderHistory(snapshot.empty ? [] : snapshot.docs);
         }, (err) => console.error('Tx listener error:', err));
+
+      // Force an immediate direct fetch so we always show fresh data on load
+      loadHistory();
     }
 
     // ==================== UPDATE UI ====================

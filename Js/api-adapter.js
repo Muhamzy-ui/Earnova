@@ -208,7 +208,7 @@ class Query {
         const snapshot = await this.get();
         if (!cancelled) callback(snapshot);
       } catch (e) { if (!cancelled && errorCallback) errorCallback(e); }
-      if (!cancelled) setTimeout(poll, 15000); // Poll less frequently for lists
+      if (!cancelled) setTimeout(poll, 5000); // Poll every 5s for referral list
     };
     this.db._listeners.add(poll);
     poll();
