@@ -290,8 +290,12 @@ class DocRef {
     }
 
     // Handle users/{uid}/transactions/{txnId}
+    // Always POST (create) since set() on a specific doc means upsert
     if (parts.length === 4 && parts[0] === 'users' && parts[2] === 'transactions') {
-      await this.db._fetch(`/users/${parts[1]}/transactions/${parts[3]}/`, 'PATCH', data);
+      const txnId = parts[3];
+      // Inject the doc_id so the backend saves it with the right ID
+      const payload = { ...data, id: txnId, doc_id: txnId };
+      await this.db._fetch(`/users/${parts[1]}/transactions/`, 'POST', payload);
       this.db._triggerRefresh();
       return;
     }
