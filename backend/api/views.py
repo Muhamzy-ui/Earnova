@@ -715,34 +715,20 @@ def withdrawal_by_id(request, doc_id):
     POST/PATCH /withdrawals/{doc_id}/ - Create or merge-update a specific withdrawal record.
     Checks and deducts balance on creation.
     """
-    uid = request.firebase_user.get('uid')
-    
-    # Lock user for balance safety
     try:
-        user = UserProfile.objects.select_for_update().get(uid=uid)
-    except UserProfile.DoesNotExist:
-        return Response({'error': 'User not found'}, status=404)
+        uid = request.firebase_user.get('uid')
+        
+        # Lock user for balance safety
+        try:
+            user = UserProfile.objects.select_for_update().get(uid=uid)
+        except UserProfile.DoesNotExist:
+            # Try lookup by username as fallback
+            user = UserProfile.objects.filter(username=uid).first()
+            if not user:
+                return Response({'error': f'User {uid} not found'}, status=404)
 
-    data = {k: v for k, v in request.data.items()
-            if not (isinstance(v, dict) and v.get('_isFieldValue'))}
-
-    # Get amount for validation
-    try:
-        amount = float(data.get('amount', 0))
-    except (ValueError, TypeError):
-        amount = 0
-
-    # Try to get or create
-    try:
-        withdrawal = Withdrawal.objects.select_for_update().get(doc_id=doc_id)
-        created = False
-    except Withdrawal.DoesNotExist:
-        if amount > user.balance:
-            return Response({'error': 'Insufficient funds, top up your tasks.'}, status=400)
-            
-        # DEDUCT BALANCE
-        user.balance -= type(user.balance)(amount)
-        user.save()
+        data = {k: v for k, v in request.data.items()
+                if not (isinstance(v, dict) and v.get('_isFieldValue'))}
 
         # Helper to safely convert to Decimal/Float
         def safe_dec(val):
@@ -750,7 +736,24 @@ def withdrawal_by_id(request, doc_id):
             try: return Decimal(str(val))
             except: return None
 
+        # Get amount for validation
         try:
+            amount = float(data.get('amount', 0))
+        except (ValueError, TypeError):
+            amount = 0
+
+        # Try to get or create
+        try:
+            withdrawal = Withdrawal.objects.select_for_update().get(doc_id=doc_id)
+            created = False
+        except Withdrawal.DoesNotExist:
+            if amount > user.balance:
+                return Response({'error': 'Insufficient funds, top up your tasks.'}, status=400)
+                
+            # DEDUCT BALANCE
+            user.balance -= type(user.balance)(amount)
+            user.save()
+
             withdrawal = Withdrawal.objects.create(
                 doc_id=doc_id,
                 user=user,
@@ -766,62 +769,38 @@ def withdrawal_by_id(request, doc_id):
                 charge=safe_dec(data.get('transferCharge') or data.get('charge')),
                 wallet_address=data.get('walletAddress'),
                 network_fee=safe_dec(data.get('networkFee')),
-                # Defensive: if column doesn't exist yet, this might fail, so we handle below
                 receipt_file=data.get('receiptFile')
             )
-        except Exception as e:
-            # Fallback if receipt_file column is missing
-            print(f"Withdrawal create error (retrying without receipt_file): {e}")
-            withdrawal = Withdrawal.objects.create(
-                doc_id=doc_id,
+            
+            # Create a transaction record for the user's history if new
+            Transaction.objects.create(
                 user=user,
-                username=data.get('username', user.username),
-                user_email=data.get('userEmail', user.email),
-                amount=amount,
-                type=data.get('type', ''),
-                status=data.get('status', 'pending'),
-                bank=data.get('bank') or (data.get('userBankDetails') or {}).get('bank'),
-                account_number=data.get('accountNumber') or (data.get('userBankDetails') or {}).get('account'),
-                account_name=data.get('accountName') or (data.get('userBankDetails') or {}).get('name'),
-                ngn_amount=safe_dec(data.get('amountNGN') or data.get('ngnAmount')),
-                charge=safe_dec(data.get('transferCharge') or data.get('charge')),
-                wallet_address=data.get('walletAddress'),
-                network_fee=safe_dec(data.get('networkFee'))
+                type='withdrawal',
+                title=f"Withdrawal ({data.get('type', 'Standard')})",
+                amount=-amount,
+                status='pending',
+                description=f"Withdrawal of ${amount} to {withdrawal.bank or withdrawal.wallet_address}"
             )
-            # If we are here, we at least saved the withdrawal. 
-            # We can try to update receipt_file separately so it doesn't crash the whole thing
-            try:
-                withdrawal.receipt_file = data.get('receiptFile')
-                withdrawal.save()
-            except: pass
-        
-        # Create a transaction record for the user's history if new
-        Transaction.objects.create(
-            user=user,
-            type='withdrawal',
-            title=f"Withdrawal ({data.get('type', 'Standard')})",
-            amount=-amount,
-            status='pending',
-            description=f"Withdrawal of ${amount} to {withdrawal.bank or withdrawal.wallet_address}"
-        )
-        created = True
+            created = True
 
-    if not created:
-        # Merge update
-        try:
+        if not created:
+            # Merge update
             if data.get('status'): withdrawal.status = data['status']
             if data.get('amount'): withdrawal.amount = data['amount']
-            if data.get('receiptFile'): 
-                try: withdrawal.receipt_file = data['receiptFile']
-                except: pass # Column might not exist yet
+            if data.get('receiptFile'):
+                try:
+                    withdrawal.receipt_file = data['receiptFile']
+                except:
+                    pass # Column missing fallback
             withdrawal.save()
-        except Exception as e:
-            print(f"Withdrawal update error: {e}")
-            return Response({'error': str(e)}, status=500)
 
-    from .serializers import WithdrawalSerializer
-    return Response(WithdrawalSerializer(withdrawal).data,
-                    status=201 if created else 200)
+        from .serializers import WithdrawalSerializer
+        return Response(WithdrawalSerializer(withdrawal).data,
+                        status=201 if created else 200)
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return Response({'error': f'Server Error: {str(e)}'}, status=500)
 
 
 # ==========================================
@@ -835,54 +814,57 @@ def transaction_by_id(request, uid, doc_id):
     PATCH /users/{uid}/transactions/{doc_id}/ - Merge-update a specific transaction
     (e.g. mark receiptUploaded=True after payment proof is submitted)
     """
-    request_uid = request.firebase_user.get('uid')
-    if request_uid != uid and not getattr(request, 'is_admin', False):
-        return Response({'error': 'Unauthorized'}, status=403)
-
     try:
-        # Support lookup by UID or Username
-        user = UserProfile.objects.filter(Q(uid=uid) | Q(username=uid)).first()
-        if not user:
-            return Response({'error': 'User not found'}, status=404)
-    except Exception as e:
-        return Response({'error': str(e)}, status=404)
+        request_uid = request.firebase_user.get('uid')
+        if request_uid != uid and not getattr(request, 'is_admin', False):
+            return Response({'error': 'Unauthorized'}, status=403)
 
-    if request.method == 'GET':
         try:
-            txn = Transaction.objects.get(user=user, doc_id=doc_id)
+            # Support lookup by UID or Username
+            user = UserProfile.objects.filter(Q(uid=uid) | Q(username=uid)).first()
+            if not user:
+                return Response({'error': f'User {uid} not found'}, status=404)
+        except Exception as e:
+            return Response({'error': str(e)}, status=404)
+
+        if request.method == 'GET':
+            try:
+                txn = Transaction.objects.get(user=user, doc_id=doc_id)
+                from .serializers import TransactionSerializer
+                return Response(TransactionSerializer(txn).data)
+            except Transaction.DoesNotExist:
+                return Response({'exists': False}, status=404)
+
+        elif request.method == 'PATCH':
+            data = {k: v for k, v in request.data.items()
+                    if not (isinstance(v, dict) and v.get('_isFieldValue'))}
+
+            txn, created = Transaction.objects.get_or_create(
+                user=user,
+                doc_id=doc_id,
+                defaults={
+                    'type': data.get('type', 'withdrawal'),
+                    'title': data.get('title', 'Withdrawal'),
+                    'amount': data.get('amount', 0),
+                    'status': data.get('status', 'pending'),
+                    'date': data.get('date', ''),
+                    'description': data.get('description', ''),
+                }
+            )
+
+            if not created:
+                # Merge update: only update fields that are provided
+                if data.get('receiptUploaded') is not None:
+                    txn.description = (txn.description or '') + ' • Receipt uploaded'
+                if data.get('receiptFile'):
+                    txn.description = (txn.description or '') + f' • File: {data["receiptFile"]}'
+                if data.get('status'): txn.status = data['status']
+                txn.save()
+
             from .serializers import TransactionSerializer
-            return Response(TransactionSerializer(txn).data)
-        except Transaction.DoesNotExist:
-            return Response({'exists': False}, status=404)
-
-    elif request.method == 'PATCH':
-        data = {k: v for k, v in request.data.items()
-                if not (isinstance(v, dict) and v.get('_isFieldValue'))}
-
-        txn, created = Transaction.objects.get_or_create(
-            user=user,
-            doc_id=doc_id,
-            defaults={
-                'type': data.get('type', 'withdrawal'),
-                'title': data.get('title', 'Withdrawal'),
-                'amount': data.get('amount', 0),
-                'status': data.get('status', 'pending'),
-                'date': data.get('date', ''),
-                'description': data.get('description', ''),
-            }
-        )
-
-        if not created:
-            # Merge update: only update fields that are provided
-            if data.get('receiptUploaded') is not None:
-                txn.description = (txn.description or '') + ' • Receipt uploaded'
-            if data.get('receiptFile'):
-                txn.description = (txn.description or '') + f' • File: {data["receiptFile"]}'
-            if data.get('status'): txn.status = data['status']
-            txn.save()
-
-        from .serializers import TransactionSerializer
-        return Response(TransactionSerializer(txn).data, status=201 if created else 200)
+            return Response(TransactionSerializer(txn).data, status=201 if created else 200)
+    except Exception as e:
+        return Response({'error': f'Server Error: {str(e)}'}, status=500)
 
 @api_view(['GET'])
 def backfill_referrals(request):
