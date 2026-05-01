@@ -45,7 +45,11 @@ class FirestoreShim {
       headers['Authorization'] = `Bearer ${token}`;
     }
     
-    const options = { method, headers };
+    const options = { 
+      method, 
+      headers,
+      cache: 'no-cache'
+    };
     if (data) options.body = JSON.stringify(data);
     
     try {
@@ -168,6 +172,11 @@ class Query {
 
     // Handle users collection
     if (this.path === 'users') {
+      const emailFilter = this.filters.find(f => f.field === 'email');
+      if (emailFilter) {
+        const results = await this.db._fetch(`/admin/users/?email=${encodeURIComponent(emailFilter.value)}`);
+        return this._wrapDocs(results);
+      }
       const refFilter = this.filters.find(f => f.field === 'referralCode');
       if (refFilter) {
         try {
@@ -185,8 +194,17 @@ class Query {
       return this._wrapDocs(results);
     }
 
-    // Kyc (dummy)
-    if (this.path === 'kyc') return this._wrapDocs([]);
+    // Handle stats collection
+    if (this.path === 'stats') {
+      const results = await this.db._fetch(`/admin/stats/`);
+      return this._wrapDocs(results);
+    }
+
+    // Handle kyc collection
+    if (this.path === 'kyc') {
+      const results = await this.db._fetch(`/admin/kyc/`);
+      return this._wrapDocs(results);
+    }
 
     return this._wrapDocs([]);
   }

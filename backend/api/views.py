@@ -550,7 +550,11 @@ def admin_stats(request):
 @firebase_admin_required
 def admin_users(request):
     """List users for admin panel."""
-    users = UserProfile.objects.all().order_by('-created_at')[:100]
+    email = request.GET.get('email')
+    if email:
+        users = UserProfile.objects.filter(email__iexact=email)
+    else:
+        users = UserProfile.objects.all().order_by('-created_at')[:100]
     serializer = UserProfileSerializer(users, many=True)
     return Response(serializer.data)
 
