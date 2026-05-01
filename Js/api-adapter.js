@@ -107,16 +107,20 @@ class CollectionRef {
   }
 
   async add(data) {
+    console.log("ADAPTER: Adding to collection:", this.path, data);
     const parts = this.path.split('/');
     let result;
-    // Sub-collection: users/{uid}/transactions
-    if (parts.length === 3 && parts[0] === 'users' && parts[2] === 'transactions') {
-      result = await this.db._fetch(`/users/${parts[1]}/transactions/`, 'POST', data);
-    } else if (parts[0] === 'withdrawals') {
+    // Sub-collection: users/{uid}/transactions or global transactions
+    if (this.path.includes('transactions')) {
+      if (parts.length === 3) {
+        result = await this.db._fetch(`/users/${parts[1]}/transactions/`, 'POST', data);
+      } else {
+        result = await this.db._fetch(`/transactions/`, 'POST', data);
+      }
+    } else if (this.path.includes('withdrawals')) {
       result = await this.db._fetch(`/withdrawals/`, 'POST', data);
-    } else if (parts[0] === 'transactions') {
-      result = await this.db._fetch(`/transactions/`, 'POST', data);
     } else {
+      console.error("ADAPTER ERROR: Path not supported for add():", this.path);
       throw new Error(`Collection add not supported for path: ${this.path}`);
     }
     this.db._triggerRefresh();
