@@ -271,7 +271,7 @@ class DocRef {
 
     // Handle users/{uid}
     if (parts.length === 2 && parts[0] === 'users') {
-      await this.db._fetch(`/users/${parts[1]}/`, 'POST', data);
+      await this.db._fetch(`/users/${parts[1]}/`, method, data);
       this.db._triggerRefresh();
       return;
     }
@@ -284,18 +284,24 @@ class DocRef {
 
     // Handle withdrawals/{docId}
     if (parts.length === 2 && parts[0] === 'withdrawals') {
-      await this.db._fetch(`/withdrawals/${parts[1]}/`, 'POST', data);
+      await this.db._fetch(`/withdrawals/${parts[1]}/`, method, data);
       this.db._triggerRefresh();
       return;
     }
 
     // Handle users/{uid}/transactions/{txnId}
-    // Always POST (create) since set() on a specific doc means upsert
     if (parts.length === 4 && parts[0] === 'users' && parts[2] === 'transactions') {
+      const uid = parts[1];
       const txnId = parts[3];
-      // Inject the doc_id so the backend saves it with the right ID
-      const payload = { ...data, id: txnId, doc_id: txnId };
-      await this.db._fetch(`/users/${parts[1]}/transactions/`, 'POST', payload);
+      
+      if (options.merge) {
+        // Use the specific document endpoint for updates
+        await this.db._fetch(`/users/${uid}/transactions/${txnId}/`, 'PATCH', data);
+      } else {
+        // Use the collection endpoint for creation
+        const payload = { ...data, id: txnId, doc_id: txnId };
+        await this.db._fetch(`/users/${uid}/transactions/`, 'POST', payload);
+      }
       this.db._triggerRefresh();
       return;
     }

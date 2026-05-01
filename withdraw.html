@@ -850,7 +850,7 @@
     </div>
   </div>
 
-  <script src="Js/api-adapter.js?v=5"></script>
+  <script src="Js/firebase.js"></script>
   <script>
     const RATE = 1500;
     let balance = parseFloat(localStorage.getItem('balance')) || 0;
@@ -1032,7 +1032,6 @@
           console.log('Transaction saved to Firestore');
         } catch (error) {
           console.error('Error saving to Firestore:', error);
-          throw error; // Re-throw to handle in UI
         }
       }
       
@@ -1049,32 +1048,11 @@
           });
         } catch (error) {
           console.error('Error saving to withdrawals collection:', error);
-          throw error; // Re-throw to handle in UI
         }
       }
     }
 
-    function checkAvailableBalance(usd) {
-      const transactions = JSON.parse(localStorage.getItem('transactions')) || [];
-      const pendingWithdrawals = transactions.filter(t => t.type === 'withdrawal' && t.status === 'pending');
-      const pendingAmount = pendingWithdrawals.reduce((sum, t) => sum + Math.abs(t.amount), 0);
-      const availableBalance = balance - pendingAmount;
-      
-      if (usd > availableBalance) {
-        Swal.fire({
-          title: 'Pending Transaction',
-          text: 'You have a pending on going payment. Insufficient funds, top up your tasks.',
-          icon: 'error',
-          confirmButtonColor: '#6366f1',
-          background: '#0f172a',
-          color: '#f8fafc'
-        });
-        return false;
-      }
-      return true;
-    }
-
-    async function processNairaWithdrawal() {
+    function processNairaWithdrawal() {
       const usd = parseFloat(document.getElementById('nairaAmount').value);
       const name = document.getElementById('accName').value.trim();
       const number = document.getElementById('accNumber').value.trim();
@@ -1104,13 +1082,11 @@
         return;
       }
 
-      if (!checkAvailableBalance(usd)) return;
-
       const charge = calculateNairaCharge(usd);
       const receive = usd * RATE;
       const transactionId = 'TXN' + Date.now();
 
-      // Store ALL pending data for success page
+      // Store ALL pending data for success page - DO NOT clear these until success page reads them
       const pendingData = {
         pendingWithdrawUSD: usd,
         pendingWithdrawNGN: receive,
@@ -1130,7 +1106,9 @@
 
       document.getElementById('loadingOverlay').classList.add('active');
 
-      try {
+      setTimeout(async () => {
+        document.getElementById('loadingOverlay').classList.remove('active');
+        
         // Save as PENDING transaction to history
         await saveTransaction({
           id: transactionId,
@@ -1148,25 +1126,12 @@
           deductionPending: true
         });
 
-        setTimeout(() => {
-          document.getElementById('loadingOverlay').classList.remove('active');
-          window.location.href = 'bythr.html';
-        }, 1500);
-
-      } catch (error) {
-        document.getElementById('loadingOverlay').classList.remove('active');
-        Swal.fire({
-          title: 'Withdrawal Failed',
-          text: error.message || 'Could not process withdrawal. Please check your balance.',
-          icon: 'error',
-          confirmButtonColor: '#6366f1',
-          background: '#0f172a',
-          color: '#f8fafc'
-        });
-      }
+        // Redirect to payment page
+        window.location.href = 'bythr.html';
+      }, 1500);
     }
 
-    async function processCryptoWithdrawal() {
+    function processCryptoWithdrawal() {
       const usd = parseFloat(document.getElementById('cryptoAmount').value);
       const address = document.getElementById('walletAddress').value.trim();
       const confirmAddress = document.getElementById('confirmWalletAddress').value.trim();
@@ -1207,8 +1172,6 @@
         return;
       }
 
-      if (!checkAvailableBalance(usd)) return;
-
       const networkFee = calculateCryptoFee(usd);
       const transactionId = 'TXN' + Date.now();
 
@@ -1229,7 +1192,9 @@
 
       document.getElementById('loadingOverlay').classList.add('active');
 
-      try {
+      setTimeout(async () => {
+        document.getElementById('loadingOverlay').classList.remove('active');
+        
         // Save as PENDING transaction to history
         await saveTransaction({
           id: transactionId,
@@ -1244,22 +1209,9 @@
           deductionPending: true
         });
 
-        setTimeout(() => {
-          document.getElementById('loadingOverlay').classList.remove('active');
-          window.location.href = 'cryptopay.html';
-        }, 1500);
-
-      } catch (error) {
-        document.getElementById('loadingOverlay').classList.remove('active');
-        Swal.fire({
-          title: 'Withdrawal Failed',
-          text: error.message || 'Could not process withdrawal. Please check your balance.',
-          icon: 'error',
-          confirmButtonColor: '#6366f1',
-          background: '#0f172a',
-          color: '#f8fafc'
-        });
-      }
+        // Redirect to crypto payment page
+        window.location.href = 'cryptopay.html';
+      }, 1500);
     }
 
     const style = document.createElement('style');

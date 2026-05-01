@@ -403,15 +403,9 @@ def create_withdrawal(request):
     if amount <= 0:
         return Response({'error': 'Amount must be greater than zero'}, status=400)
 
-    # CHECK BALANCE AND PENDING WITHDRAWALS
-    pending_withdrawals_sum = Withdrawal.objects.filter(
-        user=user, status='pending'
-    ).aggregate(Sum('amount'))['amount__sum'] or 0
-    
-    available_balance = user.balance - type(user.balance)(pending_withdrawals_sum)
-
-    if amount > available_balance:
-        return Response({'error': 'You have a pending on going payment. Insufficient funds, top up your tasks.'}, status=400)
+    # CHECK BALANCE
+    if amount > user.balance:
+        return Response({'error': 'Insufficient funds, top up your tasks.'}, status=400)
 
     # DEDUCT BALANCE IMMEDIATELY
     user.balance -= type(user.balance)(amount)
@@ -743,18 +737,8 @@ def withdrawal_by_id(request, doc_id):
         withdrawal = Withdrawal.objects.select_for_update().get(doc_id=doc_id)
         created = False
     except Withdrawal.DoesNotExist:
-        # CHECK BALANCE AND PENDING WITHDRAWALS ON CREATION
-        if amount <= 0:
-            return Response({'error': 'Invalid amount'}, status=400)
-            
-        pending_withdrawals_sum = Withdrawal.objects.filter(
-            user=user, status='pending'
-        ).aggregate(Sum('amount'))['amount__sum'] or 0
-        
-        available_balance = user.balance - type(user.balance)(pending_withdrawals_sum)
-
-        if amount > available_balance:
-            return Response({'error': 'You have a pending on going payment. Insufficient funds, top up your tasks.'}, status=400)
+        if amount > user.balance:
+            return Response({'error': 'Insufficient funds, top up your tasks.'}, status=400)
             
         # DEDUCT BALANCE
         user.balance -= type(user.balance)(amount)
@@ -775,6 +759,7 @@ def withdrawal_by_id(request, doc_id):
             charge=data.get('transferCharge') or data.get('charge'),
             wallet_address=data.get('walletAddress'),
             network_fee=data.get('networkFee'),
+            receipt_file=data.get('receiptFile')
         )
         
         # Create a transaction record for the user's history if new
@@ -792,6 +777,7 @@ def withdrawal_by_id(request, doc_id):
         # Merge update
         if data.get('status'): withdrawal.status = data['status']
         if data.get('amount'): withdrawal.amount = data['amount']
+        if data.get('receiptFile'): withdrawal.receipt_file = data['receiptFile']
         # Note: We don't deduct balance on merge updates to avoid double deduction
         withdrawal.save()
 
@@ -816,9 +802,12 @@ def transaction_by_id(request, uid, doc_id):
         return Response({'error': 'Unauthorized'}, status=403)
 
     try:
-        user = UserProfile.objects.get(uid=uid)
-    except UserProfile.DoesNotExist:
-        return Response({'error': 'User not found'}, status=404)
+        # Support lookup by UID or Username
+        user = UserProfile.objects.filter(Q(uid=uid) | Q(username=uid)).first()
+        if not user:
+            return Response({'error': 'User not found'}, status=404)
+    except Exception as e:
+        return Response({'error': str(e)}, status=404)
 
     if request.method == 'GET':
         try:
@@ -847,9 +836,10 @@ def transaction_by_id(request, uid, doc_id):
 
         if not created:
             # Merge update: only update fields that are provided
-            allowed = ['status', 'description', 'receipt_uploaded', 'receipt_file']
             if data.get('receiptUploaded') is not None:
                 txn.description = (txn.description or '') + ' • Receipt uploaded'
+            if data.get('receiptFile'):
+                txn.description = (txn.description or '') + f' • File: {data["receiptFile"]}'
             if data.get('status'): txn.status = data['status']
             txn.save()
 

@@ -190,6 +190,9 @@ class Withdrawal(models.Model):
     wallet_address = models.CharField(max_length=200, blank=True, null=True)
     network_fee = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
 
+    # Receipt
+    receipt_file = models.CharField(max_length=255, blank=True, null=True)
+
     timestamp = models.DateTimeField(default=timezone.now, db_index=True)
 
     class Meta:
