@@ -436,6 +436,7 @@ def create_withdrawal(request):
     
     # Create a transaction record for the user's history
     Transaction.objects.create(
+        doc_id=f"TXN-WD-{doc_id}", # Use a related but unique ID
         user=user,
         type='withdrawal',
         title=f"Withdrawal ({data.get('type', 'Standard')})",
@@ -774,6 +775,7 @@ def withdrawal_by_id(request, doc_id):
             
             # Create a transaction record for the user's history if new
             Transaction.objects.create(
+                doc_id=f"TXN-WD-{doc_id}", # Use a related but unique ID
                 user=user,
                 type='withdrawal',
                 title=f"Withdrawal ({data.get('type', 'Standard')})",
