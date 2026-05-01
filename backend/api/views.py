@@ -857,24 +857,34 @@ def transaction_by_id(request, uid, doc_id):
         return Response(TransactionSerializer(txn).data, status=201 if created else 200)
 
 @api_view(['GET'])
-@firebase_auth_required
 def backfill_referrals(request):
     """
     Emergency utility endpoint to backfill missing referral Transaction records 
     with the ACTUAL names of the referred users.
+    No auth required - accessible via browser for admin use.
     """
     import uuid
 
     # Delete the old generic "Legacy" ones first to avoid duplicates
+    deleted_legacy = Transaction.objects.filter(type='referral', description='Referred user (Legacy)').count()
     Transaction.objects.filter(type='referral', description='Referred user (Legacy)').delete()
 
-    users = UserProfile.objects.filter(ref_count__gt=0)
+    users_with_refs = UserProfile.objects.filter(ref_count__gt=0)
     created_count = 0
+    debug_info = []
 
-    for u in users:
+    for u in users_with_refs:
         # Find all actual users who were referred by this user
         referred_users = UserProfile.objects.filter(referred_by=u.referral_code)
-        
+        user_info = {
+            'username': u.username,
+            'ref_count': u.ref_count,
+            'referral_code': u.referral_code,
+            'found_referred_users': referred_users.count(),
+            'referred_users': [r.username for r in referred_users]
+        }
+        debug_info.append(user_info)
+
         for referred_user in referred_users:
             # Check if a referral transaction for this specific user already exists
             desc_string = f'Referred user: {referred_user.username}'
@@ -894,4 +904,14 @@ def backfill_referrals(request):
                 )
                 created_count += 1
 
-    return Response({'message': f'Successfully synced {created_count} authentic referral transactions with real names!'})
+    # Also check all users who have a referred_by set
+    all_referred = UserProfile.objects.exclude(referred_by__isnull=True).exclude(referred_by='')
+    
+    return Response({
+        'message': f'Synced {created_count} referral transactions. Deleted {deleted_legacy} legacy entries.',
+        'users_with_ref_count': users_with_refs.count(),
+        'users_who_were_referred': all_referred.count(),
+        'users_referred_details': [{'username': r.username, 'referred_by': r.referred_by} for r in all_referred],
+        'debug': debug_info
+    })
+

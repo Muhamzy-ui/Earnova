@@ -973,9 +973,7 @@
         .orderBy('timestamp', 'desc')
         .limit(20)
         .onSnapshot((snapshot) => {
-          if (!snapshot.empty) {
-            renderHistory(snapshot.docs);
-          }
+          renderHistory(snapshot.empty ? [] : snapshot.docs);
         }, (err) => console.error('Tx listener error:', err));
     }
 
