@@ -114,6 +114,8 @@ class CollectionRef {
       result = await this.db._fetch(`/users/${parts[1]}/transactions/`, 'POST', data);
     } else if (parts[0] === 'withdrawals') {
       result = await this.db._fetch(`/withdrawals/`, 'POST', data);
+    } else if (parts[0] === 'transactions') {
+      result = await this.db._fetch(`/transactions/`, 'POST', data);
     } else {
       throw new Error(`Collection add not supported for path: ${this.path}`);
     }
@@ -151,6 +153,12 @@ class Query {
         queryUrl += `&type=${typeFilter.value}`;
       }
       const results = await this.db._fetch(queryUrl);
+      return this._wrapDocs(results);
+    }
+
+    // Handle global transactions
+    if (this.path === 'transactions') {
+      const results = await this.db._fetch(`/transactions/?limit=${this._limit}`);
       return this._wrapDocs(results);
     }
 

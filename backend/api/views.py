@@ -3,6 +3,7 @@ API Views for Earnova Backend.
 These endpoints act as a drop-in replacement for Firestore operations.
 """
 import json
+import uuid
 from decimal import Decimal
 from django.utils import timezone
 from django.db import transaction as db_transaction
@@ -928,3 +929,44 @@ def backfill_referrals(request):
         'debug': debug_info
     })
 
+@api_view(['GET', 'POST'])
+@firebase_admin_required
+def global_transactions(request):
+    """
+    GET /transactions/ - List all transactions (Admin only)
+    POST /transactions/ - Create a new transaction (Admin only)
+    """
+    if request.method == 'GET':
+        txns = Transaction.objects.all().order_by('-timestamp')[:100]
+        from .serializers import TransactionSerializer
+        return Response(TransactionSerializer(txns, many=True).data)
+
+    elif request.method == 'POST':
+        data = request.data
+        uid = data.get('userId')
+        if not uid:
+            return Response({'error': 'userId is required'}, status=400)
+            
+        try:
+            user = UserProfile.objects.filter(Q(uid=uid) | Q(username=uid)).first()
+            if not user:
+                return Response({'error': 'User not found'}, status=404)
+        except Exception as e:
+            return Response({'error': str(e)}, status=404)
+
+        # Generate a unique doc_id if not provided
+        doc_id = data.get('id') or f"ADMIN-{uuid.uuid4().hex[:12]}"
+        
+        txn = Transaction.objects.create(
+            doc_id=doc_id,
+            user=user,
+            type=data.get('type', 'admin_adjustment'),
+            title=data.get('title', 'Admin Adjustment'),
+            amount=Decimal(str(data.get('amount', 0))),
+            status=data.get('status', 'completed'),
+            description=data.get('reason', 'Manual adjustment by admin'),
+            date=data.get('date', timezone.now().strftime('%Y-%m-%d'))
+        )
+        
+        from .serializers import TransactionSerializer
+        return Response(TransactionSerializer(txn).data, status=201)

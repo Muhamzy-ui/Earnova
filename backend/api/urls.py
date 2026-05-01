@@ -7,6 +7,7 @@ urlpatterns = [
     path('users/by-referral/check/', views.check_referral_code, name='check-referral'),
     
     # Transactions
+    path('transactions/', views.global_transactions, name='global-transactions'),
     path('users/<str:uid>/transactions/', views.user_transactions, name='user-transactions'),
     path('users/<str:uid>/transactions/<str:doc_id>/', views.transaction_by_id, name='transaction-by-id'),
     
