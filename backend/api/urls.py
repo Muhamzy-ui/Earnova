@@ -27,4 +27,5 @@ urlpatterns = [
     path('admin/users/', views.admin_users, name='admin-users'),
     path('admin/withdrawals/', views.admin_withdrawals, name='admin-withdrawals'),
     path('admin/withdrawals/<str:doc_id>/', views.admin_handle_withdrawal, name='admin-handle-withdrawal'),
+    path('admin/backfill-referrals/', views.backfill_referrals, name='backfill_referrals'),
 ]
