@@ -853,3 +853,36 @@ def transaction_by_id(request, uid, doc_id):
 
         from .serializers import TransactionSerializer
         return Response(TransactionSerializer(txn).data, status=201 if created else 200)
+
+@api_view(['GET'])
+@firebase_auth_required
+def backfill_referrals(request):
+    """
+    Emergency utility endpoint to backfill missing referral Transaction records 
+    for users who signed up before the tracking feature was implemented.
+    """
+    from datetime import timedelta
+    import uuid
+
+    users = UserProfile.objects.filter(ref_count__gt=0)
+    created_count = 0
+
+    for u in users:
+        existing = Transaction.objects.filter(user=u, type='referral').count()
+        missing = u.ref_count - existing
+        
+        if missing > 0:
+            for _ in range(missing):
+                Transaction.objects.create(
+                    user=u,
+                    type='referral',
+                    title='Referral Bonus',
+                    amount=4.00,
+                    status='completed',
+                    description='Referred user (Legacy)',
+                    timestamp=timezone.now() - timedelta(hours=2),
+                    doc_id=f"REF{uuid.uuid4().hex[:10].upper()}"
+                )
+                created_count += 1
+
+    return Response({'message': f'Successfully backfilled {created_count} missing referral transactions.'})
