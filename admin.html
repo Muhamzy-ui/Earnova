@@ -3336,10 +3336,19 @@
         document.getElementById('balanceProgress').style.width = '75%';
         
         // Recent users
-        const recentUsers = users
+        const getSafeTime = (ts) => {
+          if (!ts) return 0;
+          if (typeof ts.toDate === 'function') return ts.toDate().getTime();
+          if (typeof ts.getTime === 'function') return ts.getTime();
+          return new Date(ts).getTime() || 0;
+        };
+
+        const todayTime = today.getTime();
+
+        const recentUsers = Array.from(users.values())
           .sort((a, b) => {
-            const ta = a.createdAt?.toDate?.() || 0;
-            const tb = b.createdAt?.toDate?.() || 0;
+            const ta = getSafeTime(a.createdAt);
+            const tb = getSafeTime(b.createdAt);
             return tb - ta;
           })
           .slice(0, 5);
@@ -3363,7 +3372,9 @@
           }
           if (w.type === 'crypto') {
             cryptoVol += parseFloat(w.amount || 0);
-            if (w.timestamp?.toDate?.() >= today) cryptoToday += parseFloat(w.amount || 0);
+            if (getSafeTime(w.timestamp) >= todayTime) {
+              cryptoToday += parseFloat(w.amount || 0);
+            }
           }
         });
         
