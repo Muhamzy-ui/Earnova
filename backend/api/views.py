@@ -185,8 +185,10 @@ def user_profile_detail(request, uid):
                         referrer.total_earned = getattr(referrer, 'total_earned', 0) + Decimal('4.00')
                         referrer.save()
                         
+                        import uuid
                         # Add transaction to referrer's history
                         Transaction.objects.create(
+                            doc_id=f"REF{uuid.uuid4().hex[:10].upper()}",
                             user=referrer,
                             type='referral',
                             title='Referral Bonus',
@@ -859,30 +861,37 @@ def transaction_by_id(request, uid, doc_id):
 def backfill_referrals(request):
     """
     Emergency utility endpoint to backfill missing referral Transaction records 
-    for users who signed up before the tracking feature was implemented.
+    with the ACTUAL names of the referred users.
     """
-    from datetime import timedelta
     import uuid
+
+    # Delete the old generic "Legacy" ones first to avoid duplicates
+    Transaction.objects.filter(type='referral', description='Referred user (Legacy)').delete()
 
     users = UserProfile.objects.filter(ref_count__gt=0)
     created_count = 0
 
     for u in users:
-        existing = Transaction.objects.filter(user=u, type='referral').count()
-        missing = u.ref_count - existing
+        # Find all actual users who were referred by this user
+        referred_users = UserProfile.objects.filter(referred_by=u.referral_code)
         
-        if missing > 0:
-            for _ in range(missing):
+        for referred_user in referred_users:
+            # Check if a referral transaction for this specific user already exists
+            desc_string = f'Referred user: {referred_user.username}'
+            exists = Transaction.objects.filter(user=u, type='referral', description=desc_string).exists()
+            
+            if not exists:
                 Transaction.objects.create(
+                    doc_id=f"REF{uuid.uuid4().hex[:10].upper()}",
                     user=u,
                     type='referral',
                     title='Referral Bonus',
                     amount=4.00,
                     status='completed',
-                    description='Referred user (Legacy)',
-                    timestamp=timezone.now() - timedelta(hours=2),
-                    doc_id=f"REF{uuid.uuid4().hex[:10].upper()}"
+                    description=desc_string,
+                    referred_user_id=referred_user.uid,
+                    timestamp=referred_user.created_at or timezone.now()
                 )
                 created_count += 1
 
-    return Response({'message': f'Successfully backfilled {created_count} missing referral transactions.'})
+    return Response({'message': f'Successfully synced {created_count} authentic referral transactions with real names!'})
