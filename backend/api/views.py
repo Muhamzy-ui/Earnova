@@ -408,8 +408,9 @@ def create_withdrawal(request):
         return Response({'error': 'Insufficient funds, top up your tasks.'}, status=400)
 
     # DEDUCT BALANCE IMMEDIATELY
-    user.balance -= type(user.balance)(amount)
-    user.save()
+    # User wants to stop automatic deduction until admin approval
+    # user.balance -= type(user.balance)(amount)
+    # user.save()
 
     doc_id = data.get('id', data.get('doc_id'))
     if not doc_id:
@@ -751,9 +752,9 @@ def withdrawal_by_id(request, doc_id):
             if amount > user.balance:
                 return Response({'error': 'Insufficient funds, top up your tasks.'}, status=400)
                 
-            # DEDUCT BALANCE
-            user.balance -= type(user.balance)(amount)
-            user.save()
+            # DEDUCT BALANCE - DISABLED: admin will approve and deduct later
+            # user.balance -= type(user.balance)(amount)
+            # user.save()
 
             withdrawal = Withdrawal.objects.create(
                 doc_id=doc_id,

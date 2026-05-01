@@ -116,6 +116,13 @@ def firebase_auth_required(view_func):
 
         # Attach decoded user to request
         request.firebase_user = decoded
+        
+        # Check if this user is an admin
+        from api.models import AdminProfile
+        request.is_admin = AdminProfile.objects.filter(
+            email=decoded.get('email', ''), is_active=True
+        ).exists()
+
         return view_func(request, *args, **kwargs)
 
     return wrapper
