@@ -1045,9 +1045,12 @@
 
         if (!snapshot.empty) {
           renderHistory(snapshot.docs);
+        } else {
+          renderHistory([]);
         }
       } catch (error) {
         console.error('Load history error:', error);
+        renderHistory([]);
       }
     }
 

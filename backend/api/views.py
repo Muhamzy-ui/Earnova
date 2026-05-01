@@ -379,29 +379,54 @@ def user_transactions(request, uid):
 
 @api_view(['POST'])
 @firebase_auth_required
+@db_transaction.atomic
 def create_withdrawal(request):
     """
-    Adds to global withdrawals collection.
+    Checks user balance, deducts it, and adds to global withdrawals collection.
     """
     data = request.data
     uid = request.firebase_user.get('uid')
     
     try:
-        user = UserProfile.objects.get(uid=uid)
+        user = UserProfile.objects.select_for_update().get(uid=uid)
     except UserProfile.DoesNotExist:
         return Response({'error': 'User not found'}, status=404)
+
+    # Get amount and validate
+    try:
+        amount = float(data.get('amount', 0))
+    except (ValueError, TypeError):
+        return Response({'error': 'Invalid amount'}, status=400)
+
+    if amount <= 0:
+        return Response({'error': 'Amount must be greater than zero'}, status=400)
+
+    # CHECK BALANCE AND PENDING WITHDRAWALS
+    pending_withdrawals_sum = Withdrawal.objects.filter(
+        user=user, status='pending'
+    ).aggregate(Sum('amount'))['amount__sum'] or 0
+    
+    available_balance = user.balance - type(user.balance)(pending_withdrawals_sum)
+
+    if amount > available_balance:
+        return Response({'error': 'You have a pending on going payment. Insufficient funds, top up your tasks.'}, status=400)
+
+    # DEDUCT BALANCE IMMEDIATELY
+    user.balance -= type(user.balance)(amount)
+    user.save()
 
     doc_id = data.get('id', data.get('doc_id'))
     if not doc_id:
         import uuid
         doc_id = f"WD{uuid.uuid4().hex[:12].upper()}"
 
+    # Create withdrawal record
     withdrawal = Withdrawal.objects.create(
         doc_id=doc_id,
         user=user,
         username=data.get('username', user.username),
         user_email=data.get('userEmail', user.email),
-        amount=data.get('amount', 0),
+        amount=amount,
         type=data.get('type', ''),
         status=data.get('status', 'pending'),
         bank=data.get('bank'),
@@ -413,6 +438,16 @@ def create_withdrawal(request):
         network_fee=data.get('networkFee')
     )
     
+    # Create a transaction record for the user's history
+    Transaction.objects.create(
+        user=user,
+        type='withdrawal',
+        title=f"Withdrawal ({data.get('type', 'Standard')})",
+        amount=-amount,
+        status='pending',
+        description=f"Withdrawal of ${amount} to {data.get('bank') or data.get('walletAddress')}"
+    )
+
     serializer = WithdrawalSerializer(withdrawal)
     return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -678,43 +713,84 @@ def platform_settings_detail(request, doc_id):
 
 @api_view(['POST', 'PATCH'])
 @firebase_auth_required
+@db_transaction.atomic
 def withdrawal_by_id(request, doc_id):
     """
     POST/PATCH /withdrawals/{doc_id}/ - Create or merge-update a specific withdrawal record.
-    Used by bythr.html and cryptopay.html after payment is made.
+    Checks and deducts balance on creation.
     """
     uid = request.firebase_user.get('uid')
+    
+    # Lock user for balance safety
     try:
-        user = UserProfile.objects.get(uid=uid)
+        user = UserProfile.objects.select_for_update().get(uid=uid)
     except UserProfile.DoesNotExist:
         return Response({'error': 'User not found'}, status=404)
 
     data = {k: v for k, v in request.data.items()
             if not (isinstance(v, dict) and v.get('_isFieldValue'))}
 
-    withdrawal, created = Withdrawal.objects.get_or_create(
-        doc_id=doc_id,
-        defaults={
-            'user': user,
-            'username': data.get('username', user.username),
-            'user_email': data.get('userEmail', user.email),
-            'amount': data.get('amount', 0),
-            'type': data.get('type', ''),
-            'status': data.get('status', 'pending'),
-            'bank': data.get('bank') or (data.get('userBankDetails') or {}).get('bank'),
-            'account_number': data.get('accountNumber') or (data.get('userBankDetails') or {}).get('account'),
-            'account_name': data.get('accountName') or (data.get('userBankDetails') or {}).get('name'),
-            'ngn_amount': data.get('amountNGN') or data.get('ngnAmount'),
-            'charge': data.get('transferCharge') or data.get('charge'),
-            'wallet_address': data.get('walletAddress'),
-            'network_fee': data.get('networkFee'),
-        }
-    )
+    # Get amount for validation
+    try:
+        amount = float(data.get('amount', 0))
+    except (ValueError, TypeError):
+        amount = 0
+
+    # Try to get or create
+    try:
+        withdrawal = Withdrawal.objects.select_for_update().get(doc_id=doc_id)
+        created = False
+    except Withdrawal.DoesNotExist:
+        # CHECK BALANCE AND PENDING WITHDRAWALS ON CREATION
+        if amount <= 0:
+            return Response({'error': 'Invalid amount'}, status=400)
+            
+        pending_withdrawals_sum = Withdrawal.objects.filter(
+            user=user, status='pending'
+        ).aggregate(Sum('amount'))['amount__sum'] or 0
+        
+        available_balance = user.balance - type(user.balance)(pending_withdrawals_sum)
+
+        if amount > available_balance:
+            return Response({'error': 'You have a pending on going payment. Insufficient funds, top up your tasks.'}, status=400)
+            
+        # DEDUCT BALANCE
+        user.balance -= type(user.balance)(amount)
+        user.save()
+
+        withdrawal = Withdrawal.objects.create(
+            doc_id=doc_id,
+            user=user,
+            username=data.get('username', user.username),
+            user_email=data.get('userEmail', user.email),
+            amount=amount,
+            type=data.get('type', ''),
+            status=data.get('status', 'pending'),
+            bank=data.get('bank') or (data.get('userBankDetails') or {}).get('bank'),
+            account_number=data.get('accountNumber') or (data.get('userBankDetails') or {}).get('account'),
+            account_name=data.get('accountName') or (data.get('userBankDetails') or {}).get('name'),
+            ngn_amount=data.get('amountNGN') or data.get('ngnAmount'),
+            charge=data.get('transferCharge') or data.get('charge'),
+            wallet_address=data.get('walletAddress'),
+            network_fee=data.get('networkFee'),
+        )
+        
+        # Create a transaction record for the user's history if new
+        Transaction.objects.create(
+            user=user,
+            type='withdrawal',
+            title=f"Withdrawal ({data.get('type', 'Standard')})",
+            amount=-amount,
+            status='pending',
+            description=f"Withdrawal of ${amount} to {withdrawal.bank or withdrawal.wallet_address}"
+        )
+        created = True
 
     if not created:
         # Merge update
         if data.get('status'): withdrawal.status = data['status']
         if data.get('amount'): withdrawal.amount = data['amount']
+        # Note: We don't deduct balance on merge updates to avoid double deduction
         withdrawal.save()
 
     from .serializers import WithdrawalSerializer

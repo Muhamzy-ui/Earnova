@@ -708,6 +708,9 @@
     let userBank = localStorage.getItem('withdrawalBank') || '';
     let userAccount = localStorage.getItem('withdrawalAccount') || '';
     let userName = localStorage.getItem('withdrawalName') || '';
+
+    // Clean up pending deduction since backend now handles it atomically
+    localStorage.removeItem('pendingBalanceDeduction');
     
     // Initialize
     document.addEventListener('DOMContentLoaded', () => {

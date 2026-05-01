@@ -595,17 +595,14 @@
             `;
           });
         } else {
-          // Check if user has any referrals at all
-          const userDoc = await userDocRef.get();
-          if (userDoc.exists) {
-            const data = userDoc.data();
-            if ((data.refCount || 0) > 0) {
-              activityContainer.style.display = 'block';
-              activityList.innerHTML = '<div class="referral-activity-empty">No recent activity found</div>';
-            } else {
-              activityContainer.style.display = 'none';
-            }
-          }
+          // Show empty state
+          activityContainer.style.display = 'block';
+          activityList.innerHTML = `
+            <div style="text-align:center; padding:15px; color:var(--text-muted); font-size:12px;">
+              <i class="fas fa-user-friends" style="font-size:24px; opacity:0.3; margin-bottom:8px; display:block;"></i>
+              No recent referrals
+            </div>
+          `;
         }
       } catch (error) {
         console.error('Error loading referral activity:', error);
