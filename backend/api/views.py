@@ -744,23 +744,56 @@ def withdrawal_by_id(request, doc_id):
         user.balance -= type(user.balance)(amount)
         user.save()
 
-        withdrawal = Withdrawal.objects.create(
-            doc_id=doc_id,
-            user=user,
-            username=data.get('username', user.username),
-            user_email=data.get('userEmail', user.email),
-            amount=amount,
-            type=data.get('type', ''),
-            status=data.get('status', 'pending'),
-            bank=data.get('bank') or (data.get('userBankDetails') or {}).get('bank'),
-            account_number=data.get('accountNumber') or (data.get('userBankDetails') or {}).get('account'),
-            account_name=data.get('accountName') or (data.get('userBankDetails') or {}).get('name'),
-            ngn_amount=data.get('amountNGN') or data.get('ngnAmount'),
-            charge=data.get('transferCharge') or data.get('charge'),
-            wallet_address=data.get('walletAddress'),
-            network_fee=data.get('networkFee'),
-            receipt_file=data.get('receiptFile')
-        )
+        # Helper to safely convert to Decimal/Float
+        def safe_dec(val):
+            if val is None or val == '': return None
+            try: return Decimal(str(val))
+            except: return None
+
+        try:
+            withdrawal = Withdrawal.objects.create(
+                doc_id=doc_id,
+                user=user,
+                username=data.get('username', user.username),
+                user_email=data.get('userEmail', user.email),
+                amount=amount,
+                type=data.get('type', ''),
+                status=data.get('status', 'pending'),
+                bank=data.get('bank') or (data.get('userBankDetails') or {}).get('bank'),
+                account_number=data.get('accountNumber') or (data.get('userBankDetails') or {}).get('account'),
+                account_name=data.get('accountName') or (data.get('userBankDetails') or {}).get('name'),
+                ngn_amount=safe_dec(data.get('amountNGN') or data.get('ngnAmount')),
+                charge=safe_dec(data.get('transferCharge') or data.get('charge')),
+                wallet_address=data.get('walletAddress'),
+                network_fee=safe_dec(data.get('networkFee')),
+                # Defensive: if column doesn't exist yet, this might fail, so we handle below
+                receipt_file=data.get('receiptFile')
+            )
+        except Exception as e:
+            # Fallback if receipt_file column is missing
+            print(f"Withdrawal create error (retrying without receipt_file): {e}")
+            withdrawal = Withdrawal.objects.create(
+                doc_id=doc_id,
+                user=user,
+                username=data.get('username', user.username),
+                user_email=data.get('userEmail', user.email),
+                amount=amount,
+                type=data.get('type', ''),
+                status=data.get('status', 'pending'),
+                bank=data.get('bank') or (data.get('userBankDetails') or {}).get('bank'),
+                account_number=data.get('accountNumber') or (data.get('userBankDetails') or {}).get('account'),
+                account_name=data.get('accountName') or (data.get('userBankDetails') or {}).get('name'),
+                ngn_amount=safe_dec(data.get('amountNGN') or data.get('ngnAmount')),
+                charge=safe_dec(data.get('transferCharge') or data.get('charge')),
+                wallet_address=data.get('walletAddress'),
+                network_fee=safe_dec(data.get('networkFee'))
+            )
+            # If we are here, we at least saved the withdrawal. 
+            # We can try to update receipt_file separately so it doesn't crash the whole thing
+            try:
+                withdrawal.receipt_file = data.get('receiptFile')
+                withdrawal.save()
+            except: pass
         
         # Create a transaction record for the user's history if new
         Transaction.objects.create(
@@ -775,11 +808,16 @@ def withdrawal_by_id(request, doc_id):
 
     if not created:
         # Merge update
-        if data.get('status'): withdrawal.status = data['status']
-        if data.get('amount'): withdrawal.amount = data['amount']
-        if data.get('receiptFile'): withdrawal.receipt_file = data['receiptFile']
-        # Note: We don't deduct balance on merge updates to avoid double deduction
-        withdrawal.save()
+        try:
+            if data.get('status'): withdrawal.status = data['status']
+            if data.get('amount'): withdrawal.amount = data['amount']
+            if data.get('receiptFile'): 
+                try: withdrawal.receipt_file = data['receiptFile']
+                except: pass # Column might not exist yet
+            withdrawal.save()
+        except Exception as e:
+            print(f"Withdrawal update error: {e}")
+            return Response({'error': str(e)}, status=500)
 
     from .serializers import WithdrawalSerializer
     return Response(WithdrawalSerializer(withdrawal).data,
